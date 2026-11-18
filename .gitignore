@@ -1,0 +1,5 @@
+# converter output and extracted archives are rebuilt by each study's convert.py
+build/
+__pycache__/
+*.pyc
+.DS_Store
