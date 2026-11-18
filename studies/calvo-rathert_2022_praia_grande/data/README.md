@@ -4,7 +4,7 @@ The four archives in this folder are unmodified copies of the files of:
 
 Calvo-Rathert, M., Carrancho, Á., Morales, J., Pérez, N., & Caccavari, A. (2021). *Rock-magnetic, paleomagnetic and multimethod paleointensity data from an upper Miocene lava flow sequence from São Vicente (Cape Verde)* [Data set]. Zenodo. https://doi.org/10.5281/zenodo.5553392
 
-License: Creative Commons Attribution 4.0 International (CC BY 4.0). Downloaded 2026-10-24 and 2026-11-10. The MD5 checksums match those listed by Zenodo.
+License: Creative Commons Attribution 4.0 International (CC BY 4.0), https://creativecommons.org/licenses/by/4.0/. Downloaded 2026-10-24 and 2026-11-10. The MD5 checksums match those listed by Zenodo.
 
 | File | Bytes | MD5 | SHA-256 |
 | --- | --- | --- | --- |

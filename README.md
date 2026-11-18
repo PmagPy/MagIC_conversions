@@ -56,3 +56,10 @@ Requirements: Python 3 with numpy, pandas and PmagPy 4.6.0 (released 2026-11-11)
 4. Write the study README: status, sources, each choice and inference with its reason, and a short list of questions for the authors.
 5. Add a row to the table above.
 6. Upload the contribution to MagIC, then write to the authors with the link, the questions from the study README and an invitation to supersede the contribution with their own version. Record both in the table and in the study README.
+
+## License
+
+- **Code** (`convert.py`, `published.py`, `common/magic_tools.py` and other scripts): BSD 3-Clause, in `LICENSE`, the license of PmagPy.
+- **Documentation, reports and contributions** (the READMEs, `report.md`, `magic_contribution.txt`): [Creative Commons Attribution 4.0 International](https://creativecommons.org/licenses/by/4.0/) (CC BY 4.0). A contribution is adapted from the authors' archived data and paper; cite them as well as this repository.
+- **Archived data** (`studies/*/data/`): the license of the original record, unchanged. The README in each `data/` folder gives the source and license.
+- **MagIC resources** (`common/resources/`): copies of the MagIC data model, method codes and controlled vocabularies from [EarthRef](https://earthref.org/MagIC), under EarthRef's terms (sources listed in `common/magic_tools.py`).
