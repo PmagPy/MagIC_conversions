@@ -24,6 +24,8 @@ Working notes for a person or an agent converting a study. `README.md` gives the
 | `measurements` | laboratory files are archived | runs the `pmagpy.convert_2_magic` converters, adds the published results, recalculates them from the measurements |
 | `results` | only the tables of the paper or its supplement exist | builds the tables from the saved supplement files and transcribed values, recalculates what it can |
 
+A study is a good candidate when its data are public, the license allows redistribution, the paper gives site-level results to recalculate, and no MagIC contribution exists. The best ones archive the measurements of every experiment.
+
 Look for archived measurements before settling on `results`: the data availability statement, the publisher's supplement, Zenodo, figshare, PANGAEA, EarthChem, Mendeley Data, and the Paleomagnetism.org library.
 
 ## Is the study already in MagIC?
@@ -72,7 +74,17 @@ Run both before a study is called ready. The build must end with no errors.
 When a converter fails on a file or reads it incompletely (principle 2):
 
 - Write the issue with the file, what happened, what was expected, and a minimal reproduction.
-- `ROADMAP.md` lists the converter changes the studies depend on and those still to make.
+- PmagPy's issues and pull requests are the record of what is open: https://github.com/PmagPy/PmagPy/issues. A study README links the ones the study depends on or found.
+
+Gaps noted in the studies so far and not yet written up as PmagPy issues:
+
+- `rs3`: no real file with bedding, or with orientation parameters P1 = 3 or 9, has been run.
+- `pmd`: step labels, header parsing, Latin-1.
+- `tdt`: duplicate specimen names; tail checks kept as LT-PTRM-MD.
+- `jr6_jr6`: writes a temporary file into the input folder and prints each step label; reads a multispecimen field label such as `A10` as an alternating field.
+- The sample naming test `"4" in samp_con` (it reads `7-4` as convention 4) is in about ten converters.
+- No reader for the 2G tab-delimited export, and none for multispecimen protocols (several files, one per step).
+- No S-ratio function.
 
 Check a conversion against the source: converted geographic and tilt-corrected directions against those stored in the files or printed in the paper, and fits re-made from the measurements against the stored fits.
 
