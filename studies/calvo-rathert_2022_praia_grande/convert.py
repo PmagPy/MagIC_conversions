@@ -26,6 +26,13 @@ Sections:
 Usage:
     python convert.py
 
+The calculations are those of PmagPy: line fits with pmag.domean, Fisher means
+with pmag.fisher_mean, angles with pmag.angle, VGPs with pmag.dia_vgp, the Arai
+statistics with pmag.sortarai and pmag.PintPars, the remanent coercivity with
+rockmag.process_backfield_data, and the validation with pmagpy.magic_validation.
+What is calculated here instead, and why, is listed in README.md ("Calculations
+not yet made with PmagPy").
+
 Requires numpy, pandas and pmagpy with convert_2_magic.rs3 (see the repository README).
 """
 
@@ -41,14 +48,17 @@ import numpy as np
 import pandas as pd
 from pmagpy import convert_2_magic
 from pmagpy import ipmag
+from pmagpy import magic_validation
 from pmagpy import pmag
+from pmagpy import rockmag
 
 import published as pub
 
 STUDY_DIR = Path(__file__).resolve().parent
 REPO_DIR = STUDY_DIR.parents[1]
 sys.path.insert(0, str(REPO_DIR))
-from common.magic_tools import load_resources, md_table, read_magic_table, validate  # noqa: E402
+from common.magic_tools import md_table, read_magic_table  # noqa: E402
+from common.studies import write_build_summary  # noqa: E402
 
 DATA_DIR = STUDY_DIR / "data"
 BUILD_DIR = STUDY_DIR / "build"
@@ -96,16 +106,8 @@ def flow_number(site):
 
 
 def angle(d1, i1, d2, i2):
-    """Angle in degrees between two directions."""
-    a, b = pmag.dir2cart([d1, i1, 1.0]), pmag.dir2cart([d2, i2, 1.0])
-    return float(np.degrees(np.arccos(np.clip(np.dot(a, b), -1.0, 1.0))))
-
-
-def fisher(directions):
-    """Fisher mean of a list of (dec, inc): dict with dec, inc, n, k, alpha95."""
-    if len(directions) == 1:
-        return dict(dec=directions[0][0], inc=directions[0][1], n=1, k=np.nan, alpha95=np.nan)
-    return pmag.fisher_mean([[d, i] for d, i in directions])
+    """Angle in degrees between two directions (pmag.angle)."""
+    return float(pmag.angle([d1, i1], [d2, i2])[0])
 
 
 def site_row(site, result_quality="g", **columns):
@@ -157,7 +159,7 @@ def extract_archives():
 # from the measurements, and the fits in each published flow mean (Table 1),
 # which the files do not record, are identified:
 #
-#     refit_stored                   each stored fit recalculated between its limits
+#     refit_stored                   each stored fit recalculated between its limits (pmag.domean)
 #     flow_mean_members              the specimens, or samples, whose mean is the published one
 #     refit_with_other_line_types    for a flow that the stored fits do not reproduce, the one
 #                                    stored line whose type (free or anchored) explains it
@@ -165,34 +167,34 @@ def extract_archives():
 REMADE = 0.15  # degrees: a recalculated fit agrees with the stored one within this angle
 
 
-def cartesian(steps, coordinates):
-    """Moment vectors of the steps, in "sp" (specimen) or "ge" (geographic) coordinates."""
-    return np.array([pmag.dir2cart([s["D" + coordinates], s["I" + coordinates], s["M"]]) for s in steps])
+LINE_TYPES = OrderedDict([("DE-BFL", "free"), ("DE-BFL-A", "anchored"), ("DE-BFL-O", "origin")])
 
 
-def fit_line(vectors, line_type):
-    """Principal component line fit (Kirschvink, 1980).
+def demag_block(steps, coordinates):
+    """The steps of a specimen as the data block of pmag.domean.
 
     Args:
-        vectors: (n, 3) array of moment vectors, in demagnetization order.
-        line_type: "free" (line through the center of mass), "anchored" (line
-            forced through the origin) or "origin" (free line with the origin
-            added as a data point).
+        steps: the steps of a Remasoft file, in order.
+        coordinates: "sp" (specimen) or "ge" (geographic).
 
     Returns:
-        (dec, inc, mad) with the direction pointing from the last step towards the first.
+        list of [step number, declination, inclination, moment, 1, "g"].
     """
-    x = np.asarray(vectors, dtype=float)
-    if line_type == "origin":
-        x = np.vstack([x, np.zeros(3)])
-    centerd = x if line_type == "anchored" else x - x.mean(axis=0)
-    eigval, eigvec = np.linalg.eigh(centerd.T @ centerd)
-    v = eigvec[:, 2]
-    if np.dot(v, x[0] - x[-1]) < 0:
-        v = -v
-    mad = np.degrees(np.arctan(np.sqrt(max(eigval[0] + eigval[1], 0.0) / eigval[2])))
-    dec, inc, _ = pmag.cart2dir(v)
-    return float(dec), float(inc), float(mad)
+    return [[k, s["D" + coordinates], s["I" + coordinates], s["M"], 1, "g"] for k, s in enumerate(steps)]
+
+
+def fit_line(steps, coordinates, first, last, code):
+    """Principal component line through the steps first to last, with pmag.domean.
+
+    Args:
+        code: "DE-BFL" (free line), "DE-BFL-A" (anchored to the origin) or
+            "DE-BFL-O" (free line with the origin as a point).
+
+    Returns:
+        (dec, inc, mad)
+    """
+    fit = pmag.domean(demag_block(steps, coordinates), first, last, code)
+    return float(fit["specimen_dec"]), float(fit["specimen_inc"]), float(fit["specimen_mad"])
 
 
 def limit_index(steps, label, last):
@@ -216,7 +218,7 @@ def sample_means(candidates, sample_of):
         groups[sample_of[label]].append((d, i))
     out = []
     for sample, dirs in groups.items():
-        mean = fisher(dirs)
+        mean = pmag.fisher_mean([list(d) for d in dirs])
         out.append((sample, mean["dec"], mean["inc"]))
     return out
 
@@ -260,17 +262,16 @@ def refit_stored(specimens):
                 continue
             i0 = limit_index(sp["steps"], fit["Limit1"], last=False)
             i1 = limit_index(sp["steps"], fit["Limit2"], last=True)
-            used = sp["steps"][i0:i1 + 1]
-            stated = "anchored" if fit["anchored"] else "free"
-            d, i, mad = fit_line(cartesian(used, "ge"), stated)
+            stated = "DE-BFL-A" if fit["anchored"] else "DE-BFL"
+            d, i, mad = fit_line(sp["steps"], "ge", i0, i1, stated)
             row = dict(specimen=sp["name"], site=sp["site"], sample=sp["sample"], component=fit["name"],
-                       anchored=fit["anchored"], first=fit["Limit1"], last=fit["Limit2"], n_steps=len(used),
+                       anchored=fit["anchored"], first=fit["Limit1"], last=fit["Limit2"], n_steps=i1 + 1 - i0,
                        dec_geo=fit["Dge"], inc_geo=fit["Ige"], mad=fit["Prec"],
                        diff_stated=angle(d, i, fit["Dge"], fit["Ige"]), mad_diff_stated=mad - fit["Prec"],
                        other_steps="", other_n=np.nan)
             if row["diff_stated"] > REMADE:
                 for start in range(0, i1):
-                    d, i, mad = fit_line(cartesian(sp["steps"][start:i1 + 1], "ge"), stated)
+                    d, i, mad = fit_line(sp["steps"], "ge", start, i1, stated)
                     if angle(d, i, fit["Dge"], fit["Ige"]) <= 0.1 and abs(mad - fit["Prec"]) <= 0.06:
                         first = sp["steps"][start]
                         row["other_steps"] = f"{first['ID']} {first['Step']} to {fit['Limit2']}"
@@ -301,7 +302,7 @@ def search_subsets(candidates, target):
     """
     found = []
     for subset in itertools.combinations(candidates, int(target["N"])):
-        mean = fisher([(d, i) for _, d, i in subset])
+        mean = pmag.fisher_mean([[d, i] for _, d, i in subset])
         if matches(mean, target):
             found.append(tuple(label for label, _, _ in subset))
     return found
@@ -362,17 +363,17 @@ def refit_with_other_line_types(specimens, stored, target):
         return found
     for r in rows.itertuples():
         steps = by_name[r.specimen]["steps"]
-        used = steps[limit_index(steps, r.first, False):limit_index(steps, r.last, True) + 1]
+        i0, i1 = limit_index(steps, r.first, False), limit_index(steps, r.last, True)
         others = [(o.dec_geo, o.inc_geo) for o in rows.itertuples() if o.specimen != r.specimen]
         stored_type = "anchored" if r.anchored else "free"
-        for line_type in ("free", "anchored", "origin"):
+        for code, line_type in LINE_TYPES.items():
             if line_type == stored_type:
                 continue
-            dec, inc, mad = fit_line(cartesian(used, "ge"), line_type)
-            if matches(fisher(others + [(dec, inc)]), target):
-                dec_sp, inc_sp, _ = fit_line(cartesian(used, "sp"), line_type)
+            dec, inc, mad = fit_line(steps, "ge", i0, i1, code)
+            if matches(pmag.fisher_mean([list(o) for o in others] + [[dec, inc]]), target):
+                dec_sp, inc_sp, _ = fit_line(steps, "sp", i0, i1, code)
                 found.append(dict(specimen=r.specimen, component=r.component, stored_type=stored_type,
-                                  line_type=line_type, first=r.first, last=r.last, n_steps=len(used),
+                                  line_type=line_type, first=r.first, last=r.last, n_steps=i1 + 1 - i0,
                                   dec_geo=dec, inc_geo=inc, dec_spec=dec_sp, inc_spec=inc_sp, mad=mad,
                                   stored_dec=r.dec_geo, stored_inc=r.inc_geo, stored_mad=r.mad))
     return found
@@ -384,7 +385,7 @@ def recalculated_mean(chrm_geo, site, level):
     dirs = [(r.specimen, float(r.dir_dec), float(r.dir_inc)) for r in rows.itertuples()]
     if level == "samples":
         dirs = sample_means(dirs, dict(zip(rows["specimen"], rows["sample"])))
-    return fisher([(d, i) for _, d, i in dirs])
+    return pmag.fisher_mean([[d, i] for _, d, i in dirs])
 
 
 # ---------------------------------------------------------------- the directions tables
@@ -488,7 +489,7 @@ def build_directions(folder, notes):
         members[site]["reproduced"] = True
         members[site]["refit"] = f
         rows = stored_chrm[stored_chrm["site"] == site]
-        stored_mean = fisher(list(zip(rows["dec_geo"], rows["inc_geo"])))
+        stored_mean = pmag.fisher_mean([[d, i] for d, i in zip(rows["dec_geo"], rows["inc_geo"])])
         notes.append(f"{site}: the stored fits give {stored_mean['dec']:.1f}/{stored_mean['inc']:.1f} "
                      f"(k {stored_mean['k']:.0f}), {angle(stored_mean['dec'], stored_mean['inc'], row['dec'], row['inc']):.1f}° "
                      f"from the published mean. It is reproduced when the {f['stored_type']} line stored for "
@@ -554,7 +555,8 @@ def build_directions(folder, notes):
 # pTRM check), and 16 files with the steps as labeled at measurement (125C,
 # 126C, ...), earlier copies of 16 of the 66 (survey_tdt). The 66 are converted
 # with convert_2_magic.tdt (convert_thellier), each Table 2 determination is
-# recalculated (recalculate_thellier), and the published results become
+# recalculated from the converted measurements with pmag.sortarai and
+# pmag.PintPars (recalculate_thellier), and the published results become
 # specimens rows (thellier_specimen_rows).
 
 # ---------------------------------------------------------------- reading
@@ -699,84 +701,6 @@ def survey_tdt(folder):
     return coded, pd.DataFrame(pairs), notes
 
 
-# ---------------------------------------------------------------- Arai analysis
-
-def arai_points(tdt):
-    """NRM remaining and pTRM gained at each temperature, and the pTRM checks.
-
-    Returns:
-        (points, checks): points is a list of dicts (t, nrm, ptrm, zero-field
-        vector); checks a list of dicts (t, after, ptrm) where `after` is the
-        zero-field temperature that preceded the check.
-    """
-    def vector(row):
-        return np.array(pmag.dir2cart([row[3], row[4], row[2]]))
-
-    zero, infield, checks, last_zero = OrderedDict(), {}, [], None
-    for row in tdt["rows"]:
-        t, kind = decode_coded(row[1])
-        if kind in ("NRM", "Z"):
-            zero[t] = vector(row)
-            last_zero = t
-        elif kind == "I":
-            infield[t] = vector(row)
-        else:
-            checks.append(dict(t=t, after=last_zero, ptrm=np.linalg.norm(vector(row) - zero[last_zero])))
-    points = []
-    for t, z in zero.items():
-        if t < 50:
-            points.append(dict(t=t, nrm=np.linalg.norm(z), ptrm=0.0, z=z))
-        elif t in infield:
-            points.append(dict(t=t, nrm=np.linalg.norm(z), ptrm=np.linalg.norm(infield[t] - z), z=z))
-    return points, checks
-
-
-def paleointensity(points, t_min, t_max, lab_field=pub.THELLIER_LAB_FIELD):
-    """Best-fit line on the Arai plot (Coe et al., 1978) between two temperatures.
-
-    Returns:
-        dict with n, B and B_sigma (tesla), beta (sigma/slope), f (relative to
-        the y intercept of the line), g and q.
-    """
-    # the unheated point (NRM, no pTRM) is not one of the N points of a ThellierTool fit
-    sel = [p for p in points if t_min <= p["t"] <= t_max and p["t"] > 50]
-    x, y = np.array([p["ptrm"] for p in sel]), np.array([p["nrm"] for p in sel])
-    n = len(sel)
-    dx, dy = x - x.mean(), y - y.mean()
-    slope = -np.sqrt(np.sum(dy ** 2) / np.sum(dx ** 2))
-    sigma = np.sqrt((2 * np.sum(dy ** 2) - 2 * slope * np.sum(dx * dy)) / ((n - 2) * np.sum(dx ** 2)))
-    intercept = y.mean() - slope * x.mean()
-    # the selected points projected on the line
-    y_line = (slope * x + intercept + y) / 2
-    delta_y = abs(y_line[0] - y_line[-1])
-    f = delta_y / intercept
-    g = 1 - np.sum(np.diff(y_line) ** 2) / delta_y ** 2
-    beta = sigma / abs(slope)
-    return dict(n=n, B=abs(slope) * lab_field, B_sigma=sigma * lab_field, beta=beta, f=f, g=g,
-                q=f * g / beta, first=sel[0]["t"], last=sel[-1]["t"])
-
-
-def recalculate_thellier(coded):
-    """Recalculate each Table 2 determination from the archived measurements."""
-    rows = []
-    for p in pub.TABLE2_THELLIER.itertuples():
-        points, _ = arai_points(coded[p.specimen])
-        temps = [p["t"] for p in points]
-        result = paleointensity(points, p.t_min, p.t_max)
-        row = dict(specimen=p.specimen, range=f"{p.t_min}-{p.t_max}",
-                   N_pub=p.N, N=result["n"], B_pub=p.B, B=result["B"] * 1e6,
-                   B_sigma_pub=p.B_sigma, B_sigma=result["B_sigma"] * 1e6,
-                   beta_pub=p.beta, beta=result["beta"], f_pub=p.f, f=result["f"],
-                   q_pub=p.q, q=result["q"])
-        # the archived moments have three significant figures, so the last printed digit can differ
-        agree = (row["N"] == p.N and abs(row["B"] - p.B) <= 0.1 and abs(row["B_sigma"] - p.B_sigma) <= 0.1
-                 and abs(row["f"] - p.f) <= 0.025 and abs(row["q"] - p.q) <= max(0.1, 0.03 * p.q))
-        row["agrees"] = "yes" if agree and abs(row["beta"] - p.beta) <= 0.0015 else \
-            "yes, except sigma/slope" if agree else "no"
-        rows.append(row)
-    return pd.DataFrame(rows)
-
-
 # ---------------------------------------------------------------- conversion
 
 def convert_thellier(coded, work_dir):
@@ -809,6 +733,40 @@ def convert_thellier(coded, work_dir):
                        keep_default_na=False, na_values=[""])
     meas["magn_volume"] = (meas.pop("magn_moment").astype(float) * pub.EMU_PER_CM3_TO_A_PER_M).map("{:.4g}".format)
     return meas
+
+
+def recalculate_thellier(meas):
+    """Recalculate each Table 2 determination from the converted measurements.
+
+    The Arai plot is made with pmag.sortarai and the best-fit line and its
+    statistics (Coe et al., 1978) with pmag.PintPars.
+
+    Args:
+        meas: the measurements table of the Thellier-Coe experiments (convert_thellier).
+    """
+    rows = []
+    for p in pub.TABLE2_THELLIER.itertuples():
+        specimen = p.specimen + pub.THELLIER_SUFFIX
+        block = meas[meas["specimen"] == specimen]
+        araiblock, lab_field = pmag.sortarai(block, specimen, 0, version=3)
+        zijdblock, _ = pmag.find_dmag_rec(specimen, meas, version=3)
+        temperatures = [step[0] - 273 for step in araiblock[0]]
+        # the unheated point (NRM, no pTRM) is not one of the N points of a ThellierTool fit
+        start = min(k for k, t in enumerate(temperatures) if t >= p.t_min and t > 50)
+        end = max(k for k, t in enumerate(temperatures) if t <= p.t_max)
+        pars, _ = pmag.PintPars(block, araiblock, zijdblock, start, end, {}, version=3)
+        row = dict(specimen=p.specimen, range=f"{p.t_min}-{p.t_max}",
+                   N_pub=p.N, N=int(pars["int_n_measurements"]), B_pub=p.B, B=abs(pars["int_b"]) * lab_field * 1e6,
+                   B_sigma_pub=p.B_sigma, B_sigma=pars["int_b_sigma"] * lab_field * 1e6,
+                   beta_pub=p.beta, beta=pars["int_b_beta"], f_pub=p.f, f=pars["int_f"],
+                   q_pub=p.q, q=pars["int_q"])
+        # the archived moments have three significant figures, so the last printed digit can differ
+        agree = (row["N"] == p.N and abs(row["B"] - p.B) <= 0.1 and abs(row["B_sigma"] - p.B_sigma) <= 0.1
+                 and abs(row["f"] - p.f) <= 0.025 and abs(row["q"] - p.q) <= max(0.1, 0.03 * p.q))
+        row["agrees"] = "yes" if agree and abs(row["beta"] - p.beta) <= 0.0015 else \
+            "yes, except sigma/slope" if agree else "no"
+        rows.append(row)
+    return pd.DataFrame(rows)
 
 
 def thellier_specimen_rows(meas):
@@ -1206,7 +1164,8 @@ def recalculate_rockmag(measurements):
 
     A simple calculation, not that of the authors' software: the saturation
     remanence is the largest IRM and the first point of the back-field curve;
-    Bcr is where the back-field curve crosses zero; the S ratio is
+    Bcr is where the back-field curve crosses zero (rockmag.process_backfield_data);
+    the S ratio is
     (1 - IRM(-0.3 T) / SIRM) / 2; for the loop, the high-field slope is fitted
     above 60 percent of the peak field and removed, Ms is the intercept, and
     Mrs and Bc are read from the two branches of the corrected loop.
@@ -1221,7 +1180,9 @@ def recalculate_rockmag(measurements):
         back = m[m["method_codes"] == "LP-IRM-DCD"]
         field, moment = back["treat_dc_field"].astype(float).values, back["magn_mass"].astype(float).values
         out["sirm_back"] = float(moment[0])
-        out["bcr"] = abs(first_zero_crossing(field, moment)) * 1e3
+        # drop_first: the curve starts at zero field, which the function cannot put on its logarithmic axis
+        curve = pd.DataFrame({"treat_dc_field": field, "magn_mass": moment})
+        out["bcr"] = rockmag.process_backfield_data(curve, drop_first=True)[1] * 1e3
         out["s_ratio"] = (1 - float(np.interp(0.3, -field, moment)) / moment[0]) / 2
         loop = m[m["method_codes"] == "LP-HYS"]
         h, mag = loop["meas_field_dc"].astype(float).values, loop["magn_mass"].astype(float).values
@@ -1369,8 +1330,8 @@ def main():
 
     # ---- Thellier-Coe (.tdt) and Table 2
     coded, raw_pairs, notes["thellier"] = survey_tdt(folders["thellier"])
-    thellier_check = recalculate_thellier(coded)
     thellier_meas = convert_thellier(coded, BUILD_DIR).dropna(axis=1, how="all")
+    thellier_check = recalculate_thellier(thellier_meas)
     thellier_spec = thellier_specimen_rows(thellier_meas)
     thellier_spec["sample"] = thellier_spec["specimen"].map(sample_name)
     shared_names = sorted(set(thellier_spec["specimen"].str[:-len(pub.THELLIER_SUFFIX)]) & set(spec["specimen"]))
@@ -1438,7 +1399,7 @@ def main():
 
     # ---- location: the sequence means
     mean = pub.TABLE1_MEAN
-    mean_of_vgps = fisher(list(zip(pub.TABLE1["vgp_lon"], pub.TABLE1["vgp_lat"])))
+    mean_of_vgps = pmag.fisher_mean([[lon, lat] for lon, lat in zip(pub.TABLE1["vgp_lon"], pub.TABLE1["vgp_lat"])])
     plon, plat, _, _ = pmag.dia_vgp(mean["dec"], mean["inc"], mean["a95"], pub.LAT, pub.LON)
     d_vgp = float(pmag.angle([mean_of_vgps["dec"], mean_of_vgps["inc"]], [mean["vgp_lon"], mean["vgp_lat"]])[0])
     d_dir = float(pmag.angle([plon, plat], [mean["vgp_lon"], mean["vgp_lat"]])[0])
@@ -1509,9 +1470,11 @@ def main():
         whole_numbers(table)
     tables = OrderedDict(locations=locations, sites=sites, samples=samp, specimens=spec, measurements=meas,
                          ages=ages, criteria=criteria)
-    dm, vocab, codes = load_resources()
-    problems = validate(tables, dm, vocab, codes)
     write_upload_file(tables, STUDY_DIR / "magic_contribution.txt")
+    # the rules MagIC applies, on the upload file as written
+    found = magic_validation.validate(str(STUDY_DIR / "magic_contribution.txt"))
+    problems = [f"{r.level}: {r.table}.{r.column}: {r.message}" + (f" (rows {r.rows})" if len(str(r.rows)) else "")
+                for r in found.itertuples()]
 
     # ================================================================ report
     n_remade = int(spec["description"].fillna("").str.startswith("Not stored").sum())
@@ -1538,7 +1501,7 @@ def main():
            f"| locations | {len(locations)} | table (Tables 1 and 3); text; figure |",
            f"| ages | {len(ages)} | text |",
            f"| criteria | {len(criteria)} | table (Tables 2 and 3) |", ""]
-    rep.append("## Validation against the MagIC data model\n")
+    rep.append("## Validation with the rules of MagIC (`pmagpy.magic_validation`)\n")
     rep.append("No problems.\n" if not problems else "\n".join(f"- {p}" for p in problems) + "\n")
     rep.append("## Uploading to MagIC\n")
     rep.append("`magic_contribution.txt` holds every table except the contribution table, which is made on MagIC "
@@ -1547,6 +1510,10 @@ def main():
         f"- Reference: {pub.PAPER_DOI}",
         "- Laboratories: " + "; ".join(pub.LABORATORIES.split(":")),
         f"- Description: {pub.CONTRIBUTION_DESCRIPTION}"]) + "\n")
+    rep.append("`<permalink>` is the link to this study folder at the commit the upload is made from, so that it "
+               "keeps pointing to the files that made the contribution. After committing and pushing, "
+               f"`python common/studies.py --permalink {STUDY_DIR.name}` prints it; enter that commit as "
+               "`upload_commit` in `study.json`.\n")
 
     # ---- directions
     stored = d["stored"]
@@ -1740,6 +1707,13 @@ def main():
         "- The stratigraphic height of each flow (the order, PRG1 at the base, is entered).",
         "- The multispecimen heating temperature of each flow and the core used."]) + "\n")
     (STUDY_DIR / "report.md").write_text("\n".join(rep) + "\n")
+    # the "build" entry of study.json, from which the table of studies (studies.md) is made
+    flow_checks = pd.DataFrame(d["checks"])
+    write_build_summary(STUDY_DIR, tables, len(problems), [
+        f"{(flow_checks['reproduced'] == 'yes').sum()} of {len(flow_checks)} flow directions",
+        f"{(thellier_check['agrees'] != 'no').sum()} of {len(thellier_check)} Thellier-Coe determinations",
+        f"{(ms_standard['agrees'] == 'yes').sum()} of {len(ms_standard)} standard multispecimen determinations",
+        "rock-magnetic parameters"])
     print(f"{len(problems)} validation problems")
     for p in problems[:40]:
         print("  ", p)

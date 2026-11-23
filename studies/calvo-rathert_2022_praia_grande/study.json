@@ -1,0 +1,39 @@
+{
+  "citation": "Calvo Rathert et al.",
+  "year": 2022,
+  "title": "Praia Grande lava sequence, Cape Verde",
+  "journal": "Geophys. J. Int.",
+  "paper_doi": "10.1093/gji/ggac173",
+  "data_doi": "10.5281/zenodo.5553392",
+  "data_license": "CC BY 4.0",
+  "formats": [
+    "Remasoft `.rs3`",
+    "ThellierTool `.tdt`",
+    "JR6 `.jr6`",
+    "VFTB"
+  ],
+  "tier": "measurements",
+  "status": "ready for a private upload",
+  "magic_contribution_id": null,
+  "upload_commit": null,
+  "authors_contacted": null,
+  "build": {
+    "pmagpy_version": "4.6.0",
+    "rows": {
+      "locations": 1,
+      "sites": 20,
+      "samples": 92,
+      "specimens": 359,
+      "measurements": 9291,
+      "ages": 2,
+      "criteria": 10
+    },
+    "validation_problems": 0,
+    "recalculates": [
+      "11 of 11 flow directions",
+      "22 of 22 Thellier-Coe determinations",
+      "9 of 10 standard multispecimen determinations",
+      "rock-magnetic parameters"
+    ]
+  }
+}

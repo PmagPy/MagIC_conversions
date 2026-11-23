@@ -14,7 +14,7 @@ Written by `convert.py`; do not edit. Study: Calvo Rathert et al. (2022), doi:10
 | ages | 2 | text |
 | criteria | 10 | table (Tables 2 and 3) |
 
-## Validation against the MagIC data model
+## Validation with the rules of MagIC (`pmagpy.magic_validation`)
 
 No problems.
 
@@ -24,7 +24,9 @@ No problems.
 
 - Reference: 10.1093/gji/ggac173
 - Laboratories: Paleomagnetic and Rock Magnetic Laboratory (Universidad de Burgos, Spain); Interinstitutional Laboratory of Natural Magnetism (UNAM Morelia, Mexico)
-- Description: Converted from the laboratory files archived by the authors (https://doi.org/10.5281/zenodo.5553392) and from the paper and its supporting information. Sources, choices and checks are documented at https://github.com/PmagPy/MagIC_conversions (studies/calvo-rathert_2022_praia_grande).
+- Description: Converted from the laboratory files archived by the authors (https://doi.org/10.5281/zenodo.5553392) and from the paper and its supporting information. Sources, choices and checks are documented at <permalink>.
+
+`<permalink>` is the link to this study folder at the commit the upload is made from, so that it keeps pointing to the files that made the contribution. After committing and pushing, `python common/studies.py --permalink calvo-rathert_2022_praia_grande` prints it; enter that commit as `upload_commit` in `study.json`.
 
 ## Directions
 

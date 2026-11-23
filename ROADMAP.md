@@ -7,9 +7,9 @@ Status of the studies and of the PmagPy converter work they depend on. Last upda
 The contribution validates with `pmagpy.magic_validation` and with the local validator, and unpacks with PmagPy. Before it is made public:
 
 1. Upload `studies/calvo-rathert_2022_praia_grande/magic_contribution.txt` to a private MagIC workspace and resolve anything MagIC's validation reports.
-2. At upload, enter the reference, both laboratories and the contribution description (with the link to this repository) as listed in the study's `report.md` under "Uploading to MagIC"; the upload file has no contribution table. Check in the workspace that the non-ASCII characters in descriptions (°, ±, ², ×, μ) display correctly.
+2. At upload, enter the reference, both laboratories and the contribution description (with the permalink to the study folder, from `python common/studies.py --permalink calvo-rathert_2022_praia_grande`) as listed in the study's `report.md` under "Uploading to MagIC"; the upload file has no contribution table. Check in the workspace that the non-ASCII characters in descriptions (°, ±, ², ×, μ) display correctly.
 3. Make it public, then write to the authors with the link, the questions in the study README and the invitation to supersede the contribution.
-4. Record the MagIC contribution number and the date the authors were contacted in the README table and the study README.
+4. Record the MagIC contribution number, the commit of the permalink (`upload_commit`) and the date the authors were contacted in the study's `study.json` and README, and rebuild `studies.md` (`python common/studies.py`).
 
 The choice that most deserves a second look before upload is the unit of the moments (study README, Units): the magnetizations are known to a factor of about three.
 
@@ -39,6 +39,10 @@ Proposed:
 | `pmd`: step labels, header parsing, Latin-1 | not yet proposed |
 | `tdt`: duplicate specimen names; tail checks kept as LT-PTRM-MD | not yet proposed |
 | a reader for the 2G tab-delimited export | not yet proposed |
+| `rockmag.process_hyst_loop`: loops with unevenly spaced fields (VFTB), and loop files that begin with the initial curve | issue to write (Praia Grande README, "Calculations not yet made with PmagPy") |
+| `pmag.domean`: center of mass of a `DE-BFL-O` line | issue to write (same section) |
+| `rockmag.process_backfield_data`: a curve whose first step is at zero field | issue to write (same section) |
+| an S-ratio function | not yet proposed |
 
 Further converter work that the first study pointed to:
 

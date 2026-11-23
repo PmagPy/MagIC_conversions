@@ -20,11 +20,12 @@ DATA_DOI = "10.5281/zenodo.5553392"
 # at UNAM in Morelia. The names are the MagIC vocabulary items.
 LABORATORIES = ("Paleomagnetic and Rock Magnetic Laboratory (Universidad de Burgos, Spain):"
                 "Interinstitutional Laboratory of Natural Magnetism (UNAM Morelia, Mexico)")
-# Shown with the contribution in MagIC.
+# Shown with the contribution in MagIC. <permalink> is the link to this folder at the commit the
+# upload was built from, given by `python common/studies.py --permalink calvo-rathert_2022_praia_grande`.
 CONTRIBUTION_DESCRIPTION = (
     "Converted from the laboratory files archived by the authors (https://doi.org/10.5281/zenodo.5553392) "
     "and from the paper and its supporting information. Sources, choices and checks are documented at "
-    "https://github.com/PmagPy/MagIC_conversions (studies/calvo-rathert_2022_praia_grande).")
+    "<permalink>.")
 LOCATION = "Praia Grande"
 # Section 2: "nephelinitic lava flows"
 GEOLOGIC_CLASSES, GEOLOGIC_TYPES, LITHOLOGIES = "Extrusive:Igneous", "Lava Flow", "Nephelinite"

@@ -15,7 +15,7 @@ The authors archived the measurements of every experiment of the study (demagnet
 | | |
 | --- | --- |
 | Converted | all four archives of the Zenodo record, with the results of Tables 1 to 3 and S1, S3 and S4 |
-| Validation | no problems with `pmagpy.magic_validation` (MagIC's own rules, PmagPy 4.6.0) or with the local check against MagIC data model 3.0 (version of 2026-10-22) |
+| Validation | no problems with `pmagpy.magic_validation` (MagIC's own rules, PmagPy 4.6.0), which the build runs on the upload file, or with MagIC's server (`api.earthref.org/v1/MagIC/validate`, 2026-11-23) |
 | MagIC | not yet uploaded; MagIC's own validation runs on upload |
 | Authors | to be contacted after upload, with an invitation to supersede the contribution with their own version |
 
@@ -145,3 +145,28 @@ The build needs these changes, merged with pull request [#1010](https://github.c
 - `pmag.sortarai`: skips a magnitude column that is empty for the specimen, so a table with several experiments can be analyzed.
 
 `convert_2_magic.jr6_jr6` reads the multispecimen step label `A10` as an alternating field of 10 mT, so the multispecimen files are read in the multispecimen section of `convert.py`.
+
+## Calculations made with PmagPy
+
+| Calculation | PmagPy function |
+| --- | --- |
+| Line fits (free, anchored, with the origin) | `pmag.domean` |
+| Fisher means; angles between directions | `pmag.fisher_mean`; `pmag.angle` |
+| VGPs; VADM | `pmag.dia_vgp`; `pmag.b_vdm` |
+| Arai plot and its statistics (B, standard error, β, f, q) | `pmag.sortarai`, `pmag.find_dmag_rec`, `pmag.PintPars` |
+| Remanent coercivity from the back-field curve | `rockmag.process_backfield_data` |
+| Validation | `pmagpy.magic_validation.validate` |
+
+The line fits and the Arai statistics were first written in `convert.py`. Replaced by the PmagPy functions, free and anchored lines agree to rounding, the Arai statistics to rounding, and the contribution is unchanged.
+
+## Calculations not yet made with PmagPy
+
+Each is a candidate for PmagPy, and is calculated in `convert.py` until then.
+
+- **Hysteresis parameters (Ms, Mrs, Bc) from the VFTB loops.** `rockmag.process_hyst_loop` gives Ms 5 to 8 percent and Mrs 11 to 31 percent below Table S1 for these 11 loops, where the simple calculation in `recalculate_rockmag` agrees within 1.1 and 5 percent. The VFTB loops have about 18 points a branch, closely spaced near zero field (1, 8, 19, 37, 74 mT, ...). For PRG1-2 the function resamples the loop on an even field grid of 28 points up to 0.70 T, whose points nearest zero field are at ±37 mT, so the remanence is interpolated across the steepest part of the loop. This appears to be the cause; it has not been checked in the function's code. The function also stops on a loop file that begins with the initial magnetization curve, which has to be left out first. *PmagPy issue to write.*
+- **Line with the origin as a point (`DE-BFL-O`) in `pmag.domean`.** It differs from a principal component fit through the selected steps and the origin by up to 1.0° in direction and 0.6° in MAD for the fits of this study. In the function the origin is added to the points, but the center of mass is the sum of the points divided by the number of steps without the origin. The build uses `pmag.domean` as it is: this line type is only tried as an explanation of a flow mean (Directions, above), and no flow needs it. *PmagPy issue to write.*
+- **Back-field curve starting at zero field.** `rockmag.process_backfield_data` fails on a curve whose first step is at zero field (it takes the logarithm of the field) unless `drop_first=True`. The build passes it. *PmagPy issue to write.*
+- **S ratio** from the back-field curve: no PmagPy function found.
+- **Multispecimen protocol**: no reader for the step files and no calculation of the ratios in PmagPy (`ROADMAP.md`).
+
+What stays in `convert.py` by its nature: finding which specimens enter a published flow mean, pairing the 16 duplicate Thellier files with their coded copies, and the tables of this study.
