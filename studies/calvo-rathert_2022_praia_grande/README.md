@@ -16,7 +16,7 @@ The authors archived the measurements of every experiment of the study (demagnet
 | --- | --- |
 | Converted | all four archives of the Zenodo record, with the results of Tables 1 to 3 and S1, S3 and S4 |
 | Validation | no problems with `pmagpy.magic_validation` (MagIC's own rules, PmagPy 4.6.0), which the build runs on the upload file, or with MagIC's server (`api.earthref.org/v1/MagIC/validate`, 2026-11-23) |
-| MagIC | not yet uploaded; MagIC's own validation runs on upload |
+| MagIC | contribution [20941](https://earthref.org/MagIC/20941), public, uploaded 2026-11-23 from commit [71cf359](https://github.com/PmagPy/MagIC_conversions/tree/71cf359bea1fe0eb8257ea190fa08d60762135ec/studies/calvo-rathert_2022_praia_grande) |
 | Authors | to be contacted after upload, with an invitation to supersede the contribution with their own version |
 
 ## Files
