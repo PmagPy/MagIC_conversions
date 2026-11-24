@@ -12,7 +12,7 @@
   "tier": "specimens",
   "status": "ready for upload",
   "magic_contribution_id": null,
-  "upload_commit": "8fb8996735b4841672d42ecd7afb99037e1cc613",
+  "upload_commit": "ab165cd9a8a82b52d559d9624302c6b042d02f8c",
   "authors_contacted": null,
   "build": {
     "pmagpy_version": "4.6.0",
