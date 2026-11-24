@@ -17,6 +17,7 @@ The authors published the direction of the high-temperature component of every s
 | Built | specimens, samples and sites from Table S3; the published means, pole and age from the paper |
 | Validation | no problems with `pmagpy.magic_validation` (MagIC's own rules, PmagPy 4.6.0), which the build runs on the upload file, or with MagIC's server (`api.earthref.org/v1/MagIC/validate`, 2026-11-23) |
 | MagIC | not yet uploaded; no contribution for the DOI of the paper on 2026-11-23 |
+| Upload | from commit [8fb8996](https://github.com/PmagPy/MagIC_conversions/tree/8fb8996735b4841672d42ecd7afb99037e1cc613/studies/yuan_2025_jiabula); the description to enter on MagIC is that of `report.md` with this link as its `<permalink>` |
 | Authors | to be contacted after upload, with an invitation to supersede the contribution with their own version |
 
 ## Files
