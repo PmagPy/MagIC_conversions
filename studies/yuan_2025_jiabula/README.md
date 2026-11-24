@@ -62,7 +62,7 @@ Every value comes from **Table S3**, from the **text** of the paper, or is **inf
 Choices are those of the conventions of this repository (`CONVERTING.md`) unless marked.
 
 1. **Each specimen is its own site.** The authors average the 204 specimen directions directly; no site means are published. So that the mean and the pole follow from the sites table, each row of Table S3 is entered as a specimen, a sample and a site with the same name, with its direction on the specimen and the site. The field site (ZL01 to ZL27) is in each description.
-2. **Cores.** The paper reports 242 cores cut into 280 specimens. Table S3 does not say which specimens are from the same core. 25 names have a third part (for example `zl13-1-1`, beside `zl13-1`), which may mark a second specimen of a core; this is not used.
+2. **Cores.** The paper reports 242 cores cut into 280 specimens. A name is read as field site and core number (`zl01-2` is core 2 of site ZL01), so each row of Table S3 is taken as its own core. 25 names have a third part, always `-1` (for example `zl13-1-1`), 14 of them beside the name without it (`zl13-1`); these may be second specimens of a core, which the tables do not use.
 3. **Position (text).** The paper gives one coordinate pair for the section, 28.9°N, 91.1°E, and its map has no graticule. Every site has this position, with a precision of 0.1°.
 4. **Bedding of zl02-1 (inferred).** Table S3 prints strike 212, dip 46, the bedding of site ZL01, for the first specimen of ZL02. With it the in situ direction rotates to 7.2° from the printed tilt-corrected direction. With strike 203, dip 49, the bedding of the other six ZL02 specimens, it is reproduced within 0.06°, and that bedding is entered. The directions are entered as printed.
 5. **Line fits (text).** The fits are entered as lines (`DE-BFL`) from thermal demagnetization. The steps of each fit, and whether a line was anchored to the origin, are not published; the paper gives the range of the component as about 350 to 525 °C.
@@ -76,7 +76,7 @@ Choices are those of the conventions of this repository (`CONVERTING.md`) unless
 
 1. The demagnetization measurements, and the steps and line type of each fit.
 2. The directions of the low-temperature component.
-3. The coordinates of the 27 sites, and which specimens are from the same core.
+3. The coordinates of the 27 sites, and the core orientations.
 4. The bedding of specimen zl02-1.
 
 ## PmagPy

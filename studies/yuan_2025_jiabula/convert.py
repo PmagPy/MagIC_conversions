@@ -336,10 +336,9 @@ def main():
             citations="This study",
             description=(f"Specimen {name} of field site {r.field_site}, entered as its own sample and site. "
                          f"The paper reports {pub.N_CORES} cores, drilled with a portable drill and oriented with "
-                         f"magnetic and sun compasses, cut into {pub.N_SPECIMENS_CUT} specimens; Table S3 does not "
-                         "say which specimens come from the same core, and the core orientations are not "
-                         "published. Bedding (right-hand strike and dip in Table S3) entered as dip direction "
-                         "and dip." + bedding_note))))
+                         f"magnetic and sun compasses, cut into {pub.N_SPECIMENS_CUT} specimens; the core "
+                         "orientations are not published. Bedding (right-hand strike and dip in Table S3) entered "
+                         "as dip direction and dip." + bedding_note))))
     specimens, samples, sites = pd.DataFrame(specimens), pd.DataFrame(samples), pd.DataFrame(sites)
 
     # ---- locations: the section, and the published results as rows with the same location name
@@ -542,7 +541,7 @@ def main():
     rep.append("\n".join([
         "- The demagnetization measurements, and the steps and line type of each fit.",
         "- The directions of the low-temperature component (268 specimens).",
-        "- Which specimens come from the same core, and the core orientations.",
+        "- The core orientations.",
         "- The coordinates of the 27 sites.",
         "- Confirmation of the bedding of specimen zl02-1."]) + "\n")
     (STUDY_DIR / "report.md").write_text("\n".join(rep) + "\n")

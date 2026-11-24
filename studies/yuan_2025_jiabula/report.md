@@ -80,7 +80,7 @@ The directions are already more elongate than the model expects at their inclina
 
 - The demagnetization measurements, and the steps and line type of each fit.
 - The directions of the low-temperature component (268 specimens).
-- Which specimens come from the same core, and the core orientations.
+- The core orientations.
 - The coordinates of the 27 sites.
 - Confirmation of the bedding of specimen zl02-1.
 
