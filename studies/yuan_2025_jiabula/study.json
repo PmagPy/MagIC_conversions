@@ -1,0 +1,33 @@
+{
+  "citation": "Yuan et al.",
+  "year": 2025,
+  "title": "Jiabula Formation, Zhangda section, Tethyan Himalaya",
+  "journal": "J. Asian Earth Sci.",
+  "paper_doi": "10.1016/j.jseaes.2024.106428",
+  "data_doi": "10.57760/sciencedb.15244",
+  "data_license": "CC BY 4.0",
+  "formats": [
+    "supplement table (PDF)"
+  ],
+  "tier": "results",
+  "status": "ready for upload",
+  "magic_contribution_id": null,
+  "upload_commit": null,
+  "authors_contacted": null,
+  "build": {
+    "pmagpy_version": "4.6.0",
+    "rows": {
+      "locations": 4,
+      "sites": 408,
+      "samples": 204,
+      "specimens": 408,
+      "ages": 1
+    },
+    "validation_problems": 0,
+    "recalculates": [
+      "204 of 204 tilt-corrected specimen directions",
+      "3 of 3 mean directions",
+      "the pole"
+    ]
+  }
+}

@@ -47,8 +47,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from pmagpy import convert_2_magic
-from pmagpy import ipmag
-from pmagpy import magic_validation
 from pmagpy import pmag
 from pmagpy import rockmag
 
@@ -57,7 +55,8 @@ import published as pub
 STUDY_DIR = Path(__file__).resolve().parent
 REPO_DIR = STUDY_DIR.parents[1]
 sys.path.insert(0, str(REPO_DIR))
-from common.magic_tools import md_table, read_magic_table  # noqa: E402
+from common.magic_tools import (md_table, read_magic_table, validate_upload_file, whole_numbers,  # noqa: E402
+                                write_upload_file)
 from common.studies import write_build_summary  # noqa: E402
 
 DATA_DIR = STUDY_DIR / "data"
@@ -77,15 +76,6 @@ def geology(df):
     """Add the lithology columns that MagIC requires at every level."""
     df["geologic_classes"], df["geologic_types"] = pub.GEOLOGIC_CLASSES, pub.GEOLOGIC_TYPES
     df["lithologies"] = pub.LITHOLOGIES
-    return df
-
-
-def whole_numbers(df):
-    """Write columns of whole numbers without a decimal point (6, not 6.0), keeping blanks."""
-    for column in df.columns:
-        values = df[column]
-        if values.dtype.kind == "f" and values.notna().any() and (values.dropna() % 1 == 0).all():
-            df[column] = values.astype("Int64")
     return df
 
 
@@ -119,26 +109,6 @@ def site_row(site, result_quality="g", **columns):
         age_unit="Ma")
     row.update(columns)
     return row
-
-
-def write_upload_file(tables, path):
-    """Write the tables as one MagIC upload file with ipmag.upload_magic.
-
-    The contribution table (reference, laboratories, description) is not part
-    of an upload file: it is made on MagIC when the file is uploaded, from the
-    values that report.md lists under "Uploading to MagIC".
-    """
-    upload_dir = BUILD_DIR / "upload"
-    if upload_dir.exists():
-        shutil.rmtree(upload_dir)
-    upload_dir.mkdir(parents=True)
-    for name, df in tables.items():
-        pmag.magic_write(str(upload_dir / f"{name}.txt"), df.dropna(axis=1, how="all"), name, dataframe=True)
-    written = ipmag.upload_magic(dir_path=str(upload_dir), input_dir_path=str(upload_dir), validate=False,
-                                 verbose=False)[0]
-    if not written:
-        raise RuntimeError("ipmag.upload_magic did not write an upload file")
-    shutil.copyfile(written, path)
 
 
 def extract_archives():
@@ -1470,11 +1440,9 @@ def main():
         whole_numbers(table)
     tables = OrderedDict(locations=locations, sites=sites, samples=samp, specimens=spec, measurements=meas,
                          ages=ages, criteria=criteria)
-    write_upload_file(tables, STUDY_DIR / "magic_contribution.txt")
+    write_upload_file(tables, BUILD_DIR, STUDY_DIR / "magic_contribution.txt")
     # the rules MagIC applies, on the upload file as written
-    found = magic_validation.validate(str(STUDY_DIR / "magic_contribution.txt"))
-    problems = [f"{r.level}: {r.table}.{r.column}: {r.message}" + (f" (rows {r.rows})" if len(str(r.rows)) else "")
-                for r in found.itertuples()]
+    problems = validate_upload_file(STUDY_DIR / "magic_contribution.txt")
 
     # ================================================================ report
     n_remade = int(spec["description"].fillna("").str.startswith("Not stored").sum())

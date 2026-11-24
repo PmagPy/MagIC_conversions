@@ -1,6 +1,6 @@
 # Converting a study
 
-Working notes for a person or an agent converting a study. `README.md` gives the layout and the conventions; this file gives where things are and what has been learned. The worked example is [studies/calvo-rathert_2022_praia_grande](studies/calvo-rathert_2022_praia_grande/).
+Working notes for a person or an agent converting a study. `README.md` gives the layout and the conventions; this file gives where things are and what has been learned. The worked examples are [studies/calvo-rathert_2022_praia_grande](studies/calvo-rathert_2022_praia_grande/) (laboratory files) and [studies/yuan_2025_jiabula](studies/yuan_2025_jiabula/) (a table of a supplement).
 
 ## The two principles
 
@@ -90,7 +90,10 @@ Check a conversion against the source: converted geographic and tilt-corrected d
 
 ## Building the tables
 
-- **Hierarchy.** The site is the unit the authors average to get a pole or a field estimate: a cooling unit, a bed, a kiln. If the authors average samples or specimens directly, each sample is its own site.
+- **A table of a paper is a file.** A table that the contribution is built from is kept in the study folder as a CSV with the digits as printed (`table_s3.csv`), made by a script where the source allows it (`extract_table_s3.py` in the Jiabula study reads the PDF with `pdftotext`). The build reads the CSV and checks it by recalculation.
+- **Hierarchy.** The site is the unit the authors average to get a pole or a field estimate: a cooling unit, a bed, a kiln. If the authors average samples or specimens directly, each of them is its own site, with the same name as sample and specimen and its direction on the site row; the field grouping goes in the description.
+- **Locations.** One location name per study area. A row without a result describes the area and lists all its sites; each published mean or pole is a further row with the same location name, a `result_name`, and the sites it averages. A pole is entered only in the coordinates of the interpreted magnetization (tilt-corrected for a magnetization older than the folding).
+- **Age columns.** Every row with an age has `age`, with either `age_sigma` or `age_low` and `age_high`. A bound given only as a chronostratigraphic name takes the boundary age of the International Chronostratigraphic Chart, and the description names the chart.
 - **Ages.** An age must be independent of the result it dates. An archaeomagnetic or magnetostratigraphic date derived from the direction itself is not entered as the age of that direction; use the stratigraphic, typological or radiometric constraint.
 - **Published against recalculated.** The published value is entered. Where a recalculation differs, the report shows both and the row's `description` says so.
 - **Inferences.** Something the files and the paper do not say is inferred only when one choice reproduces the published numbers to their printed precision; the `description` says what was inferred and from what.

@@ -16,7 +16,7 @@ python common/studies.py
 
 ```
 common/
-    magic_tools.py        reading a MagIC table; writing a Markdown table for the reports
+    magic_tools.py        reading a MagIC table; writing and validating the upload file; Markdown tables for the reports
     studies.py            builds studies.md from the study.json files
 CONVERTING.md             working notes for converting a study: resources, validation, converters, lessons
 studies.md                the table of studies, written by common/studies.py
@@ -26,6 +26,7 @@ studies/
         study.json        the record of the study that studies.md is built from (see below)
         convert.py        the build: archives and transcribed tables in, contribution and report out
         published.py      values transcribed from the paper; decisions as named constants
+        table_*.csv       a table of the paper or its supplement, as printed, where the contribution is built from one
         data/             the archived files, unmodified, with source, license and checksums
         magic_contribution.txt   the upload file (ipmag.upload_magic): every table but the contribution table
         report.md         written by the build: contents, checks against the paper, what to enter at upload, what is missing
