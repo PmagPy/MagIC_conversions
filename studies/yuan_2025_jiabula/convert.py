@@ -263,14 +263,13 @@ def main():
     ei_checks = pd.DataFrame(ei_rows)
     ei = ei_checks.iloc[0]
     ei_note = (
-        f"Recalculated with the function ipmag.find_ei of PmagPy, the {int(ei['n'])} directions have an "
-        f"elongation of {ei['elongation']:.2f}, more than the {ei['expected']:.2f} that the TK03 model expects at "
-        f"their inclination, " + (
-            "so the method gives no flattening factor for the data set; "
-            if ei["f"] == 0 else f"and the corrected inclination is {ei['inc']:.1f}°; ")
-        + f"{int(ei['solutions'])} of {EI_BOOTSTRAPS} bootstrap samples have a solution, with corrected "
-        f"inclinations of about {ei['inc_low']:.0f} to {ei['inc_high']:.0f}° (95 percent; the bounds vary with "
-        "the random bootstrap).")
+        f"Recalculated with the function ipmag.find_ei of PmagPy ({EI_BOOTSTRAPS} bootstrap samples), the "
+        f"corrected inclination of the {int(ei['n'])} directions is about {ei['inc_median']:.0f}° "
+        f"({ei['inc_low']:.0f} to {ei['inc_high']:.0f}°), the median and 95 percent bounds of the bootstrap "
+        "samples that have a solution, "
+        + ("in agreement with the published values; " if ei["comparable"].startswith("within")
+           else "which differs from the published values; ")
+        + "the numbers vary with the random bootstrap.")
     k_ratio = means[TILT_CORRECTED]["k"] / means[IN_SITU]["k"]
     unfold = unfolding(table)
     k_max = unfold.loc[unfold["k"].idxmax()]
@@ -424,6 +423,7 @@ def main():
                 "rocks as the older bound.")),
     ]
     locations = pd.DataFrame(rows)
+    locations["age_low"] = locations["age_low"].map("{:g}".format)   # 0 and 100.5, not 0.0
 
     ages = pd.DataFrame([OrderedDict(
         location=pub.LOCATION, **age_columns, method_codes="GM-UPB:GM-CC-STRAT", citations="This study",

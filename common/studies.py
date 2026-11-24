@@ -32,9 +32,14 @@ REPO_URL = "https://github.com/PmagPy/MagIC_conversions"
 # Entries of study.json that are entered by hand; None is allowed where noted.
 REQUIRED = ("citation", "year", "title", "journal", "paper_doi", "formats", "tier", "status",
             "magic_contribution_id", "authors_contacted")
-# measurements: converted from laboratory files with pmagpy.convert_2_magic, published results recalculated
-# results: built from the tables of the paper or its supplement; no measurement files are available
-TIERS = ("measurements", "results")
+# The tier of a study is the most detailed MagIC table that the available data fill; the tables above
+# it in the hierarchy are filled as well.
+#   measurements: laboratory files, converted with pmagpy.convert_2_magic
+#   specimens:    specimen directions or results in a table of the paper or its supplement
+#   samples:      sample directions or results in a table
+#   sites:        site means only
+#   locations:    a mean direction or pole only
+TIERS = ("measurements", "specimens", "samples", "sites", "locations")
 
 
 def write_build_summary(study_dir, tables, validation_problems, recalculates):
@@ -137,9 +142,9 @@ def studies_markdown(studies):
     lines = ["# Studies", "",
              "Built from the `study.json` of each study folder by `python common/studies.py`; do not edit.",
              "",
-             f"{len(studies)} {'study' if len(studies) == 1 else 'studies'}. Tier *measurements*: converted from "
-             "laboratory files, with the published results recalculated. Tier *results*: built from the tables "
-             "of the paper or its supplement, where no measurement files are available.",
+             f"{len(studies)} {'study' if len(studies) == 1 else 'studies'}. The tier is the most detailed MagIC "
+             "table that the available data fill (measurements, specimens, samples, sites or locations); the "
+             "tables above it in the hierarchy are filled as well.",
              "",
              "| Study | Data | Tier | Formats | Recalculates | Status | In MagIC | Authors contacted |",
              "| --- | --- | --- | --- | --- | --- | --- | --- |"]

@@ -8,7 +8,7 @@ MagIC contribution for Yuan et al. (2025), built from the specimen directions th
 
 The study sampled grey limestones of the Lower Cretaceous Jiabula Formation at 27 sites of the Zhangda section (28.9°N, 91.1°E). It reports a high-temperature component in 204 specimens, which passes fold tests, and from their mean a pole at 11.2°N, 300.5°E (A95 2.6°), a paleolatitude of 40.9 ± 2.6°S at about 126 Ma.
 
-The authors published the direction of the high-temperature component of every specimen, with its bedding, so the mean directions and the pole can be recalculated. The demagnetization measurements are not public, so this is a contribution of the `results` tier: there are no laboratory files and no converter of `pmagpy.convert_2_magic` applies.
+The authors published the direction of the high-temperature component of every specimen, with its bedding, so the mean directions and the pole can be recalculated. The demagnetization measurements are not public, so this is a contribution of the `specimens` tier: the specimens table is the most detailed one the data fill. There are no laboratory files, and no converter of `pmagpy.convert_2_magic` applies.
 
 ## Status
 

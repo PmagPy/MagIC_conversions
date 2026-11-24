@@ -51,7 +51,7 @@ Requirements: Python 3 with numpy, pandas and PmagPy 4.6.0 (released 2026-11-11)
 | `citation`, `year`, `title`, `journal`, `paper_doi` | the paper, e.g. "Calvo Rathert et al.", 2022 |
 | `data_doi`, `data_license` | the archive of the data, if there is one |
 | `formats` | the file formats converted |
-| `tier` | `measurements`: converted from laboratory files with `pmagpy.convert_2_magic`, with the published results recalculated. `results`: built from the tables of the paper or its supplement, where no measurement files are available |
+| `tier` | the most detailed MagIC table that the available data fill: `measurements` (laboratory files, converted with `pmagpy.convert_2_magic`), `specimens`, `samples`, `sites` or `locations` (a table of the paper or its supplement at that level). The tables above it in the hierarchy are filled as well |
 | `status` | where the study stands, in a few words |
 | `magic_contribution_id` | the MagIC contribution number once uploaded, otherwise `null` |
 | `upload_commit` | the commit of this repository the upload was made from, otherwise `null` |

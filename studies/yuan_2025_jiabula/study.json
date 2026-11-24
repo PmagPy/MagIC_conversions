@@ -9,7 +9,7 @@
   "formats": [
     "supplement table (PDF)"
   ],
-  "tier": "results",
+  "tier": "specimens",
   "status": "ready for upload",
   "magic_contribution_id": null,
   "upload_commit": "8fb8996735b4841672d42ecd7afb99037e1cc613",

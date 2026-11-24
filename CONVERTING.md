@@ -17,16 +17,21 @@ Working notes for a person or an agent converting a study. `README.md` gives the
 - When PmagPy cannot do something, does it incompletely, or gives a wrong result, the fix goes into PmagPy with a test, in a pull request. A workaround in `convert.py` is temporary and is listed in the study README with the PmagPy issue.
 - Code that a second study would need belongs in PmagPy, not in `convert.py` or `common/`.
 
-## Two tiers
+## Tiers
 
-| Tier | When | The build |
+The tier of a study is the most detailed MagIC table that the available data fill. The tables above it in the hierarchy are filled as well, and the published results at each level are recalculated from the level below.
+
+| Tier | The data available | The build |
 | --- | --- | --- |
 | `measurements` | laboratory files are archived | runs the `pmagpy.convert_2_magic` converters, adds the published results, recalculates them from the measurements |
-| `results` | only the tables of the paper or its supplement exist | builds the tables from the saved supplement files and transcribed values, recalculates what it can |
+| `specimens` | specimen directions or results in a table of the paper or its supplement | builds the tables from the saved table, recalculates the means and poles |
+| `samples` | sample directions or results in a table | the same, from the samples |
+| `sites` | site means only | builds sites and locations, recalculates the pole from the site means |
+| `locations` | a mean direction or pole only | builds the locations table |
 
 A study is a good candidate when its data are public, the license allows redistribution, the paper gives site-level results to recalculate, and no MagIC contribution exists. The best ones archive the measurements of every experiment.
 
-Look for archived measurements before settling on `results`: the data availability statement, the publisher's supplement, Zenodo, figshare, PANGAEA, EarthChem, Mendeley Data, and the Paleomagnetism.org library.
+Look for archived measurements before settling on a tier below `measurements`: the data availability statement, the publisher's supplement, Zenodo, figshare, PANGAEA, EarthChem, Mendeley Data, and the Paleomagnetism.org library.
 
 ## Is the study already in MagIC?
 
