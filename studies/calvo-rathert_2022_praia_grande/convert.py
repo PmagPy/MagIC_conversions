@@ -1150,9 +1150,8 @@ def recalculate_rockmag(measurements):
         back = m[m["method_codes"] == "LP-IRM-DCD"]
         field, moment = back["treat_dc_field"].astype(float).values, back["magn_mass"].astype(float).values
         out["sirm_back"] = float(moment[0])
-        # drop_first: the curve starts at zero field, which the function cannot put on its logarithmic axis
         curve = pd.DataFrame({"treat_dc_field": field, "magn_mass": moment})
-        out["bcr"] = rockmag.process_backfield_data(curve, drop_first=True)[1] * 1e3
+        out["bcr"] = rockmag.process_backfield_data(curve)[1] * 1e3
         out["s_ratio"] = (1 - float(np.interp(0.3, -field, moment)) / moment[0]) / 2
         loop = m[m["method_codes"] == "LP-HYS"]
         h, mag = loop["meas_field_dc"].astype(float).values, loop["magn_mass"].astype(float).values

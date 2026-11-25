@@ -15,8 +15,8 @@ The authors archived the measurements of every experiment of the study (demagnet
 | | |
 | --- | --- |
 | Converted | all four archives of the Zenodo record, with the results of Tables 1 to 3 and S1, S3 and S4 |
-| Validation | no problems with `pmagpy.magic_validation` (MagIC's own rules, PmagPy 4.6.0), which the build runs on the upload file, or with MagIC's server (`api.earthref.org/v1/MagIC/validate`, 2026-11-23) |
-| MagIC | contribution [20941](https://earthref.org/MagIC/20941), public, uploaded 2026-11-23 from commit [71cf359](https://github.com/PmagPy/MagIC_conversions/tree/71cf359bea1fe0eb8257ea190fa08d60762135ec/studies/calvo-rathert_2022_praia_grande) |
+| Validation | no problems with `pmagpy.magic_validation` (MagIC's own rules), which the build runs on the upload file, or with MagIC's server (`api.earthref.org/v1/MagIC/validate`, 2026-11-25) |
+| MagIC | contribution [20941](https://earthref.org/MagIC/20941), public, uploaded 2026-11-23 from commit [71cf359](https://github.com/PmagPy/MagIC_conversions/tree/71cf359bea1fe0eb8257ea190fa08d60762135ec/studies/calvo-rathert_2022_praia_grande). Since 2026-11-25 the build writes the magnetization-temperature curves with their temperature and field in `meas_temp` and `meas_field_dc` (they were in `treat_temp` and `treat_dc_field`, see "PmagPy changes made for this study"); in all else the upload file is the same. To be uploaded as a new version. |
 | Authors | to be contacted after upload, with an invitation to supersede the contribution with their own version |
 
 ## Files
@@ -144,6 +144,13 @@ The build needs these changes, merged with pull request [#1010](https://github.c
 - `convert_2_magic.vftb`: recognizes IRM acquisition, back-field and hysteresis files as well as thermomagnetic curves, records the weight and names the measurements.
 - `pmag.sortarai`: skips a magnitude column that is empty for the specimen, so a table with several experiments can be analyzed.
 
+Since then, from PmagPy changes made for the La Garrotxa study, pull requests [#1058](https://github.com/PmagPy/PmagPy/pull/1058) and [#1059](https://github.com/PmagPy/PmagPy/pull/1059) (merged 2026-11-25, not yet in a release):
+
+- `convert_2_magic.vftb` (#1058) writes a magnetization-temperature curve as measured at temperature in a field, in `meas_temp` and `meas_field_dc`, as the data model defines them and as `rockmag.plot_M_T` reads them; it wrote `treat_temp` and `treat_dc_field`. This moves the temperature and field of the 5,125 points of the 10 curves, with their values unchanged.
+- `rockmag.process_backfield_data` (#1059) reads a back-field curve that starts at zero field (issue [#1049](https://github.com/PmagPy/PmagPy/issues/1049)), so the build no longer passes `drop_first=True`; Bcr is unchanged.
+
+The later changes to `rs3` and `pmag.domean` ([#1053](https://github.com/PmagPy/PmagPy/pull/1053), [#1054](https://github.com/PmagPy/PmagPy/pull/1054)) and to `tdt` ([#1057](https://github.com/PmagPy/PmagPy/pull/1057)) do not change the contribution.
+
 `convert_2_magic.jr6_jr6` reads the multispecimen step label `A10` as an alternating field of 10 mT, so the multispecimen files are read in the multispecimen section of `convert.py`.
 
 ## Calculations made with PmagPy
@@ -157,15 +164,13 @@ The build needs these changes, merged with pull request [#1010](https://github.c
 | Remanent coercivity from the back-field curve | `rockmag.process_backfield_data` |
 | Validation | `pmagpy.magic_validation.validate` |
 
-The line fits and the Arai statistics were first written in `convert.py`. Replaced by the PmagPy functions, free and anchored lines agree to rounding, the Arai statistics to rounding, and the contribution is unchanged.
+The line fits and the Arai statistics were first written in `convert.py`. Replaced by the PmagPy functions, free and anchored lines agree to rounding, the Arai statistics to rounding, and the contribution is unchanged. The line with the origin as a point, which `pmag.domean` calculated with the origin left out of the centre of mass until [#1054](https://github.com/PmagPy/PmagPy/pull/1054) (issue [#1047](https://github.com/PmagPy/PmagPy/issues/1047)), is only tried as an explanation of a flow mean (Directions, above); with the corrected calculation no flow needs it either, and the contribution is unchanged.
 
 ## Calculations not yet made with PmagPy
 
 Each is a candidate for PmagPy, and is calculated in `convert.py` until then.
 
-- **Hysteresis parameters (Ms, Mrs, Bc) from the VFTB loops.** `rockmag.process_hyst_loop` gives Ms 5 to 8 percent and Mrs 11 to 31 percent below Table S1 for these 11 loops, where the simple calculation in `recalculate_rockmag` agrees within 1.1 and 5 percent. The VFTB loops have about 18 points a branch, closely spaced near zero field (1, 8, 19, 37, 74 mT, ...). For PRG1-2 the function resamples the loop on an even field grid of 28 points up to 0.70 T, whose points nearest zero field are at ±37 mT, so the remanence is interpolated across the steepest part of the loop. The grid step is the median field step of the branches, which is large for a loop measured this way; a synthetic loop sampled at these fields shows the same loss. The lower Ms is not explained by it. The function also stops on a loop file that begins with the initial magnetization curve, which has to be left out first. PmagPy issue [#1048](https://github.com/PmagPy/PmagPy/issues/1048).
-- **Line with the origin as a point (`DE-BFL-O`) in `pmag.domean`.** It differs from a principal component fit through the selected steps and the origin by up to 1.0° in direction and 0.6° in MAD for the fits of this study. In the function the origin is added to the points, but the center of mass is the sum of the points divided by the number of steps without the origin. The build uses `pmag.domean` as it is: this line type is only tried as an explanation of a flow mean (Directions, above), and no flow needs it. PmagPy issue [#1047](https://github.com/PmagPy/PmagPy/issues/1047).
-- **Back-field curve starting at zero field.** `rockmag.process_backfield_data` fails on a curve whose first step is at zero field (it takes the logarithm of the field) unless `drop_first=True`. The build passes it. PmagPy issue [#1049](https://github.com/PmagPy/PmagPy/issues/1049).
+- **Hysteresis parameters (Ms, Mrs, Bc) from the VFTB loops.** `rockmag.process_hyst_loop` gives Ms 5 to 8 percent and Mrs 11 to 31 percent below Table S1 for these 11 loops, where the simple calculation in `recalculate_rockmag` agrees within 1.1 and 5 percent. The VFTB loops have about 18 points a branch, closely spaced near zero field (1, 8, 19, 37, 74 mT, ...). For PRG1-2 the function resamples the loop on an even field grid of 28 points up to 0.70 T, whose points nearest zero field are at ±37 mT, so the remanence is interpolated across the steepest part of the loop. The grid step is the median field step of the branches, which is large for a loop measured this way; a synthetic loop sampled at these fields shows the same loss. The lower Ms is not explained by it. PmagPy issue [#1048](https://github.com/PmagPy/PmagPy/issues/1048); pull request #1059 lets the function read a loop file that begins with the initial magnetization curve, which it stopped on.
 - **S ratio** from the back-field curve: no PmagPy function found.
 - **Multispecimen protocol**: no reader for the step files and no calculation of the ratios in PmagPy.
 

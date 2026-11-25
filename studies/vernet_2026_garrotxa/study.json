@@ -1,0 +1,43 @@
+{
+  "citation": "Vernet et al.",
+  "year": 2026,
+  "title": "La Garrotxa Volcanic Field lava flows, NE Iberia",
+  "journal": "Geol. Acta",
+  "paper_doi": "10.1344/GeologicaActa2026.24.15",
+  "data_doi": "10.5281/zenodo.20326424",
+  "data_license": "CC BY 4.0",
+  "formats": [
+    "2G binary",
+    "Remasoft `.rs3`",
+    "ThellierTool `.tdt`",
+    "VFTB"
+  ],
+  "tier": "measurements",
+  "status": "converted; PmagPy branches to be proposed; not uploaded",
+  "magic_contribution_id": null,
+  "upload_commit": null,
+  "authors_contacted": null,
+  "build": {
+    "pmagpy_version": "4.6.0",
+    "rows": {
+      "locations": 1,
+      "sites": 25,
+      "samples": 129,
+      "specimens": 467,
+      "measurements": 21022,
+      "ages": 15,
+      "criteria": 7
+    },
+    "validation_problems": 0,
+    "recalculates": [
+      "141 of 141 stored fits",
+      "130 of 134 specimen fits of Table I",
+      "12 of 13 site directions",
+      "13 of 13 VGPs",
+      "103 of 105 Thellier-Coe determinations (Table III)",
+      "10 of 10 site paleointensities",
+      "10 of 10 VADMs",
+      "46 of 55 thermal-stability ratios (Table IV)"
+    ]
+  }
+}

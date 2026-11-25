@@ -73,11 +73,15 @@ def read_studies():
     Returns:
         list of (str, dict): folder name and study record, ordered by first author and year.
 
+    Folders that git ignores (studies kept out of the repository) are left out.
+
     Raises:
         ValueError: if a study folder has no study.json, or a record lacks a required entry.
     """
     studies = []
     for folder in sorted(p for p in STUDIES_DIR.iterdir() if p.is_dir()):
+        if ignored(folder):
+            continue  # a study kept out of the repository (e.g. in .git/info/exclude) is not listed
         path = folder / "study.json"
         if not path.exists():
             raise ValueError(f"{folder.name}: no study.json")
@@ -89,6 +93,12 @@ def read_studies():
             raise ValueError(f"{folder.name}/study.json: tier must be one of {', '.join(TIERS)}")
         studies.append((folder.name, study))
     return sorted(studies, key=lambda item: (item[1]["citation"].lower(), item[1]["year"], item[0]))
+
+
+def ignored(folder):
+    """True if git ignores the folder (.gitignore or .git/info/exclude)."""
+    return subprocess.run(["git", "-C", str(REPO_DIR), "check-ignore", "-q", str(folder)],
+                          capture_output=True).returncode == 0
 
 
 def doi_link(doi):
