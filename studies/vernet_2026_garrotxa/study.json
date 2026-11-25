@@ -13,9 +13,9 @@
     "VFTB"
   ],
   "tier": "measurements",
-  "status": "converted and audited; builds from PmagPy master after #1060; not uploaded",
-  "magic_contribution_id": null,
-  "upload_commit": null,
+  "status": "in MagIC; authors to be contacted",
+  "magic_contribution_id": 20960,
+  "upload_commit": "116ee30da4e32e5ae691dbf865c591ec20077e9b",
   "authors_contacted": null,
   "build": {
     "pmagpy_version": "4.6.0",

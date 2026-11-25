@@ -17,7 +17,7 @@ The authors archived the measurements of every experiment (demagnetization, pale
 | Converted | every experiment of the archive: the demagnetization data (99 2G binary and 134 Remasoft `.rs3` files) with the authors' line fits; the Thellier-Coe files (`.TDT`, 128 specimens, 46 with low-temperature demagnetization) with Table III; the VFTB rock-magnetic curves (21 powders) and thermal-stability cycles (46, Table IV); the site means, VGPs, paleointensities and VADMs of Tables 2 to 4, and the ages of Table 1 |
 | Validation | no problems with `pmagpy.magic_validation` (the build runs it on the upload file) or with MagIC's server (`api.earthref.org/v1/MagIC/validate`, 2026-11-25) |
 | PmagPy | PmagPy `master` after pull request #1063 (2026-11-25), not yet in a release (section "PmagPy"). `study.json` records the commit of the build |
-| MagIC | not uploaded; not in MagIC as of 2026-11-25 (no contribution with the paper DOI) |
+| MagIC | [contribution 20960](https://earthref.org/MagIC/20960), uploaded 2026-11-25 from commit [116ee30](https://github.com/PmagPy/MagIC_conversions/tree/116ee30da4e32e5ae691dbf865c591ec20077e9b/studies/vernet_2026_garrotxa) |
 | Authors | not contacted |
 
 ## Files
