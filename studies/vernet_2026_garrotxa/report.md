@@ -8,9 +8,9 @@ Written by `convert.py`; do not edit. Study: Vernet et al. (2026), doi:10.1344/G
 | --- | --- | --- |
 | measurements | 21022: 1531 demagnetization steps from the 99 2G files (GTX sites), 436 from the 35 `.rs3` files of the OL sites, 4035 Thellier-Coe steps (`.TDT`), 6730 points of rock-magnetic curves and 8290 of thermal-stability cycles (VFTB) | files |
 | specimens | 467 rows for 317 specimens: 134 demagnetized (the stored fits in specimen and geographic coordinates, and 2 rows of a Table I fit recalculated here), 128 Thellier-Coe (105 with a determination of Table III), 21 rock-magnetic powders, 34 thermal-stability pieces | files; Tables I, III and IV |
-| samples | 114 cores and hand blocks | files; text |
+| samples | 129 cores and hand blocks | files; text |
 | sites | 25: 15 with the direction and VGP (13) or a description, and 10 paleointensities | Tables 1 to 4 |
-| locations | 1 | Tables 1 and 3 |
+| locations | 4: the volcanic field, and the mean poles of Table 3 | Tables 1 and 3 |
 | ages | 15 | Table 1 |
 | criteria | 7 | Table II |
 
@@ -41,7 +41,7 @@ The 99 GTX specimens have both a 2G binary file and a `.rs3` file. Read with `co
 | GTX080202A | 11 | 10 | 1 |  |
 | GTX080301B | 16 | 15 | 0 | 100 mT |
 
-The orientation in the 2G header differs from that of the `.rs3` files for 19 specimens (GTX080101A, GTX080102A, GTX080102B, GTX080103A, GTX080201A, GTX080202A, GTX080203A, GTX080301A, GTX080301B, GTX080303A, GTX100101A, GTX100101B, GTX100102A, GTX100103A, GTX100201A, GTX100202A, GTX100203A, GTX100301A, GTX100302A): all the specimens of GTX08 and GTX10, cores drilled in the laboratory from hand blocks oriented in the field. The 2G header gives one orientation for all the cores of a block, and the `.rs3` files the orientation of each core, which the directions of Table I follow. The block is the sample, with no orientation entered, and the orientation of each core is entered on its specimens (`azimuth`, `dip` of the specimens table). For core GTX0401 the `.rs3` files of its two specimens differ, and the orientation entered is the one with which Table I is reproduced, also that of the 2G files.
+The orientation in the 2G header differs from that of the `.rs3` files for 19 specimens (GTX080101A, GTX080102A, GTX080102B, GTX080103A, GTX080201A, GTX080202A, GTX080203A, GTX080301A, GTX080301B, GTX080303A, GTX100101A, GTX100101B, GTX100102A, GTX100103A, GTX100201A, GTX100202A, GTX100203A, GTX100301A, GTX100302A): all the specimens of GTX08 and GTX10, cores drilled in the laboratory from hand blocks oriented in the field. The 2G header gives one orientation for all the cores of a block, and the `.rs3` files the orientation of each core, which the directions of Table I follow and which is entered: the cores are the samples, and the site means average the blocks. For core GTX0401 the `.rs3` files of its two specimens differ, and the orientation entered is the one with which Table I is reproduced, also that of the 2G files.
 
 Warnings of the converters: 75 from `rs3` (38 × "fit is flagged O (origin included) but is the line anchored to the origin; written as DE-BFL-A"; 35 × "rows with ID M read as thermal (degrees C) steps"; 2 × "fit is not reproduced by the calculation its flag names (see the description)"), 0 from `_2g_bin`.
 
@@ -93,7 +93,7 @@ For each of the 134 specimens of Table I, the stored geographic fit closest to t
 
 ## Site means (Table 2)
 
-Hierarchical Fisher means of the characteristic fits that Table I does not discard: the specimens of each sample (core, or hand block for GTX08 and GTX10) averaged first.
+Hierarchical Fisher means of the characteristic fits that Table I does not discard: the specimens of each core (each hand block for GTX08 and GTX10) averaged first.
 
 | site | dec_pub | inc_pub | a95_pub | n_pub | dec | inc | a95 | k | n | n_specimens | angle | reproduced | specimen_mean_reproduced |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -111,7 +111,7 @@ Hierarchical Fisher means of the characteristic fits that Table I does not disca
 | GTX07 | 1.8 | 52.0 | 5.3 | 9 | 1.8 | 52.0 | 5.3 | 96.3 | 9 | 10 | 0.03 | True | False |
 | GTX10 | 29.1 | 58.6 | 8.6 | 3 | 29.1 | 58.6 | 8.6 | 206.6 | 3 | 6 | 0.02 | True | False |
 
-`specimen_mean_reproduced`: the Fisher mean of the specimens, without averaging each sample first, gives the printed mean for 6 of the 13 sites (those with one specimen per sample).
+`specimen_mean_reproduced`: the Fisher mean of the specimens, without averaging each sample first, gives the printed mean for 6 of the 13 sites (in direction within 0.15° and α95 within 0.05°).
 
 GTX09: of the 1010 subsets of the specimens of the site (with those Table I discards), 0 give the printed mean (within 0.15° in direction, 0.05° in α95, the same n). The closest in direction: 36.9/46.4, α95 26.7°, n = 4, 0.62° away (GTX0901A, GTX0903A, GTX0906B, GTX0907A); the closest with n = 6: 36.2/46.9, α95 17.6°, 0.73° away (GTX0901A, GTX0902A, GTX0903A, GTX0905A, GTX0906B, GTX0907A).
 
@@ -136,6 +136,16 @@ From the published site mean and the site coordinates of Table 1 (`pmag.dia_vgp`
 | GTX10 | 67.9 | 90.2 | 9.48 | 12.77 | 67.9 | 90.2 | 9.48 | 12.77 | 0.03 |
 
 The poles of all 13 agree within 0.06°; dp and dm agree to the printed digit for 11, and differ in the last digit for OL01 (dp 13.26, dm 19.06), GTX01 (dp 9.77, dm 10.37).
+
+## Mean poles (Table 3)
+
+The mean poles of groups of sites with the same 40Ar/39Ar age, against the Fisher mean of the VGPs of Table 3 of their sites (`pmag.fisher_mean`); `angle_of_mean_direction_pole` is the angle to the pole of the Fisher mean of their site directions (Table 2), which the published poles are not. The mean VADM of P1 is recalculated as the mean and standard deviation of the VADMs of its sites.
+
+| group | sites | lat_pub | lon_pub | A95_pub | lat | lon | A95 | angle | angle_of_mean_direction_pole | vadm_pub | vadm | vadm_sigma_pub | vadm_sigma | reproduced |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| P1 | GTX03:OL03:OL04 | 79.4 | 165.0 | 13.1 | 79.4 | 165.0 | 13.1 | 0.04 | 0.49 | 6.54 | 6.54 | 0.21 | 0.21 | True |
+| P2 | GTX08:GTX09:OL01 | 62.6 | 126.7 | 24.0 | 62.6 | 126.7 | 24.0 | 0.03 | 1.34 |  |  |  |  | True |
+| P3 | GTX04:OL02 | 77.1 | 78.2 | 52.6 | 77.1 | 78.2 | 52.6 | 0.03 | 0.64 |  |  |  |  | True |
 
 ## Thellier-Coe files
 
@@ -230,7 +240,7 @@ VADMs (Table 3) from the published site paleointensity and the site latitude (`p
 
 ## Rock-magnetic files
 
-21 powders, each with four VFTB curves, converted with `convert_2_magic.vftb`: LP-HYS 21 curves, 1071 points; LP-IMT 21 curves, 4844 points; LP-IRM 21 curves, 315 points; LP-IRM-DCD 21 curves, 500 points. Each powder is entered with the suffix `r`, in its sample (the core, or the hand block for GTX08 and GTX10). The paper gives no rock-magnetic values per sample (only the Day plot of Fig. 2C), so none is entered. For the record, and as a check of PmagPy on these curves:
+21 powders, each with four VFTB curves, converted with `convert_2_magic.vftb`: LP-HYS 21 curves, 1071 points; LP-IMT 21 curves, 4844 points; LP-IRM 21 curves, 315 points; LP-IRM-DCD 21 curves, 500 points. Each powder is entered with the suffix `r`, in the sample of its core. The paper gives no rock-magnetic values per sample (only the Day plot of Fig. 2C), so none is entered. For the record, and as a check of PmagPy on these curves:
 
 | specimen | points | bcr | ms | ms_branch | mr | mr_branch | bc | bc_branch | mr_ms | bcr_bc |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -329,10 +339,7 @@ MAGF/MAGI is recalculated as the magnetization at the end of the cooling branch 
 
 ## Information that would complete the contribution
 
-- What the ± of the ages in Table 1 is (one or two standard deviations).
-- The unit of the moments of the `.TDT` files (entered as A/m) and the volumes of the microcores.
-- Whether the NRM of the LTD specimens was measured after a low-temperature demagnetization.
-- The ninth Thellier-Coe specimen of OL03 (Tables 2 and 4 count 9; Table III and the archive have 8).
-- The field of the 11 thermal-stability cycles whose files do not record it.
-- What the second sets of rock-magnetic curves (`_MAL`) of GTX0208B and GTX0307inf are.
+Not needed for any result entered, and not asked of the authors (README.md, "Questions for the authors"):
+
+- The volumes of the Thellier-Coe microcores, which would give their moments (`magn_moment`) as well.
 - The rock-magnetic parameters of each powder, which the paper plots (Fig. 2C) but does not list.

@@ -30,7 +30,7 @@ Sections:
 Usage:
     python convert.py
 
-Requires numpy, pandas and PmagPy master with the branches listed in README.md ("PmagPy").
+Requires numpy, pandas and PmagPy master with the changes listed in README.md ("PmagPy").
 """
 
 import contextlib
@@ -75,7 +75,8 @@ def site_of(name):
 
 
 def core_of(specimen):
-    """The core a specimen was cut from: GTX0202A -> GTX0202, GTX080102A -> GTX08010, OL01-2B -> OL01-2."""
+    """The core a specimen was cut from, its sample: GTX0202A -> GTX0202, GTX080102A -> GTX080102,
+    OL01-2B -> OL01-2."""
     return specimen[:-1]
 
 
@@ -84,10 +85,9 @@ def block_of(specimen):
     return specimen[:7]
 
 
-def sample_of(specimen):
-    """The sample of a demagnetized specimen, the piece oriented in the field: the hand block for GTX08 and
-    GTX10 (GTX080102A -> GTX0801), otherwise the core (GTX0202A -> GTX0202). It is also the unit averaged
-    first in a site mean."""
+def mean_unit(specimen):
+    """The unit averaged first in a site mean: the hand block for GTX08 and GTX10 (GTX080102A -> GTX0801),
+    otherwise the core, the sample (GTX0202A -> GTX0202)."""
     return block_of(specimen) if site_of(specimen) in pub.BLOCK_SITES else core_of(specimen)
 
 
@@ -441,7 +441,7 @@ def table_i_refits(meas, orient, spec):
         gdec, ginc = geographic(dec, inc, o["azimuth"], o["dip"])
         stored = spec[(spec["specimen"] == specimen) & (spec["dir_tilt_correction"] == 0)].iloc[0]
         code = "DE-BFL-A" if mode == "anchored" else "DE-BFL"
-        base = dict(specimen=specimen, sample=sample_of(specimen), dir_comp=f"{stored['dir_comp']} (Table I)",
+        base = dict(specimen=specimen, sample=core_of(specimen), dir_comp=f"{stored['dir_comp']} (Table I)",
                     dir_n_measurements=b - a + 1, meas_step_min=scale(low), meas_step_max=scale(high),
                     meas_step_unit=unit, result_quality="g", software_packages="PmagPy",
                     citations="This study",
@@ -467,7 +467,7 @@ def site_directions(table):
     """The directions that enter each site mean: specimen name, mean unit, dec, inc (geographic)."""
     by_site = defaultdict(list)
     for r in table.itertuples():
-        by_site[site_of(r.specimen)].append((r.specimen, sample_of(r.specimen), r.dec, r.inc))
+        by_site[site_of(r.specimen)].append((r.specimen, mean_unit(r.specimen), r.dec, r.inc))
     return by_site
 
 
@@ -489,7 +489,7 @@ def recalculate_sites(entries_by_site):
         # for comparison: the Fisher mean of the specimens, without averaging each sample first
         flat = fisher([(e[2], e[3]) for e in entries_by_site[p.site]])
         flat_reproduced = (angle(flat["dec"], flat["inc"], p.dec, p.inc) <= REPRODUCED
-                           and abs(flat["alpha95"] - p.a95) <= 0.051 and len(entries_by_site[p.site]) == p.n)
+                           and abs(flat["alpha95"] - p.a95) <= 0.051)
         rows.append(dict(site=p.site, dec_pub=p.dec, inc_pub=p.inc, a95_pub=p.a95, n_pub=p.n,
                          specimen_mean_reproduced=flat_reproduced,
                          dec=m["dec"], inc=m["inc"], a95=m["alpha95"], k=m["k"], n=m["n_units"],
@@ -529,6 +529,32 @@ def closest_subsets(entries, published):
     return dict(reproducing=int(reproducing.sum()), subsets=len(results),
                 closest=results.loc[results["angle"].idxmin()].to_dict(),
                 same_n=same_n.loc[same_n["angle"].idxmin()].to_dict())
+
+
+def recalculate_mean_poles():
+    """The mean poles of Table 3 against the Fisher mean of the VGPs of Table 3 of their sites (and against the
+    pole of the Fisher mean of the site directions of Table 2, which the published poles are not), and the mean
+    VADM of P1 against the mean and standard deviation of the VADMs of its sites."""
+    t2, t3, t1 = (pub.TABLE2_DIRECTIONS.set_index("site"), pub.TABLE3.set_index("site"), pub.TABLE1.set_index("site"))
+    rows = []
+    for g in pub.MEAN_POLES.itertuples():
+        sites = g.sites.split(":")
+        vgps = pmag.fisher_mean([[t3.loc[s, "vgp_lon"], t3.loc[s, "vgp_lat"]] for s in sites])
+        mean_dir = pmag.fisher_mean([[t2.loc[s, "dec"], t2.loc[s, "inc"]] for s in sites])
+        plon, plat, _, _ = pmag.dia_vgp(mean_dir["dec"], mean_dir["inc"], mean_dir["alpha95"],
+                                        t1.loc[sites, "lat"].mean(), t1.loc[sites, "lon"].mean())
+        vadms = t3.loc[sites, "vadm"].dropna()
+        row = dict(group=g.group, sites=g.sites, lat_pub=g.pole_lat, lon_pub=g.pole_lon, A95_pub=g.A95,
+                   lat=vgps["inc"], lon=vgps["dec"], A95=vgps["alpha95"], k=vgps["k"],
+                   angle=angle(vgps["dec"], vgps["inc"], g.pole_lon, g.pole_lat),
+                   angle_of_mean_direction_pole=angle(plon, plat, g.pole_lon, g.pole_lat),
+                   vadm_pub=g.vadm, vadm=vadms.mean() if pd.notna(g.vadm) else np.nan,
+                   vadm_sigma_pub=g.vadm_sigma, vadm_sigma=vadms.std(ddof=1) if pd.notna(g.vadm) else np.nan)
+        row["reproduced"] = (row["angle"] <= 0.1 and abs(row["A95"] - g.A95) <= 0.051 and
+                             (pd.isna(g.vadm) or (abs(row["vadm"] - g.vadm) <= 0.0051
+                                                  and abs(row["vadm_sigma"] - g.vadm_sigma) <= 0.0051)))
+        rows.append(row)
+    return pd.DataFrame(rows)
 
 
 def recalculate_vgps():
@@ -643,8 +669,8 @@ def thellier_sample(original, direction_samples):
     """The sample of a Thellier specimen, from its file name (LTD_ removed).
 
     OL0102A -> OL01-2 (the core named OL01-2 in the demagnetization files); GTX0206B1 -> GTX0206;
-    GTX080101 -> GTX0801 and LTD_GTX08021 -> GTX0802 (GTX08 and GTX10: the oriented hand block, the
-    sample of the demagnetized specimens as well); GTX11011 -> GTX1101, an unoriented hand block.
+    GTX080101 -> GTX080101, a core drilled from the hand block GTX0801; LTD_GTX08021 -> GTX0802 and
+    GTX10011 -> GTX1001, hand blocks; GTX11011 -> GTX1101, an unoriented hand block.
     """
     name = original.replace("LTD_", "")
     m = re.fullmatch(r"(OL\d\d)(\d\d)[A-Z]+", name)
@@ -836,7 +862,8 @@ def convert_vftb_file(path, specimen, stem):
 
 def piece_sample(name, known_samples):
     """The sample of a rock-magnetic or thermal-stability piece: OL0102A, OL0106 -> OL01-2, OL01-6;
-    GTX080103inf -> GTX0801 (the hand block of core GTX080103); GTX0208B_MAL, GTX0102inf -> GTX0208, GTX0102."""
+    GTX080103inf -> GTX080103 (a core); GTX0802 -> GTX0802 (a hand block); GTX0208B_MAL, GTX0102inf ->
+    GTX0208, GTX0102."""
     m = re.fullmatch(r"(OL\d\d)(\d\d)[A-Z]*", name)
     if m:
         return f"{m.group(1)}-{int(m.group(2))}"
@@ -1037,7 +1064,14 @@ def build_thermal_stability(folder, known_samples):
     checks["kind"] = checks["kind"].fillna("MAGF/MAGI") if "kind" in checks else "MAGF/MAGI"
     checks["agrees"] = np.where(checks["ratio_pub"].isna(), "", np.where(
         (checks["ratio"] - checks["ratio_pub"]).abs() <= 0.0051, "yes", "no"))
-    return pd.concat(measurements, ignore_index=True), pd.DataFrame(rows), checks, table
+    rows = pd.DataFrame(rows)
+    # the printed ratios that the cycles do not give
+    for c in checks[checks["agrees"] == "no"].itertuples():
+        what = f"MAGF/MAGI at {c.T_pub:.0f} °C" if c.kind == "MAGF/MAGI" else "MAG2F/MAG1I"
+        append(rows, rows["specimen"] == c.specimen,
+               f"The printed {what} ({c.ratio_pub:.3f}) is not recalculated from the cycles: the magnetization at "
+               f"the end of cooling over that of heating at the nearest temperature gives {c.ratio:.3f}.")
+    return pd.concat(measurements, ignore_index=True), rows, checks, table
 
 
 # ================================================================ the contribution
@@ -1050,6 +1084,36 @@ def geology(df):
 
 def site_info(site):
     return pub.TABLE1[pub.TABLE1["site"] == site].iloc[0]
+
+
+def age_bounds(age, pm):
+    """age_low and age_high from an age and its ± of Table 1, to the two decimals of the table."""
+    return round(age - pm, 2), round(age + pm, 2)
+
+
+def age_text(site, dating):
+    """The source of the age of a site, what its ± is, and where Martí et al. (2025) differ."""
+    return (f"{pub.DATING[dating][1]}; the ± of Table 1, {pub.AGE_UNCERTAINTY[dating]}, is entered as the lower and "
+            "upper bounds of the age." + (f" {pub.AGE_NOTES[site]}" if site in pub.AGE_NOTES else ""))
+
+
+def extra_sample(sample, files, samp):
+    """A sample named only in the paleointensity or rock-magnetic files, which give no orientation: a hand
+    block (GTX08 and GTX10, oriented in the field; GTX11, unoriented) or a core."""
+    site, t1 = site_of(sample), site_info(site_of(sample))
+    block = sample.startswith("GTX") and len(sample) == 7 and site in pub.BLOCK_SITES + pub.UNORIENTED_SITES
+    if site in pub.UNORIENTED_SITES:
+        text = "Unoriented hand block (text)"
+    elif block:
+        cores = [c for c in samp["sample"] if c.startswith(sample) and c != sample]
+        text = ("Hand block oriented in the field (text)"
+                + (f", from which the cores {', '.join(cores)} were drilled in the laboratory (samples of their own)"
+                   if cores else ""))
+    else:
+        text = "Core"
+    return OrderedDict(sample=sample, site=site, method_codes="FS-H" if block else "FS-FD", lat=t1["lat"],
+                       lon=t1["lon"], citations="This study",
+                       description=f"{text}; named in the {files} files, which give no orientation.")
 
 
 def main():
@@ -1084,7 +1148,7 @@ def main():
 
     # ---- specimens: the stored fits
     spec = rs3["specimens"].copy()
-    spec["sample"] = spec["specimen"].map(sample_of)
+    spec["sample"] = spec["specimen"].map(core_of)
     # the converter writes its notes as clauses joined by "; ": each becomes a sentence
     spec["description"] = spec["description"].fillna("").map(
         lambda d: " ".join(c[0].upper() + c[1:] + ("" if c.endswith((".", "?", "!")) else ".") for c in d.split("; ") if c))
@@ -1134,44 +1198,32 @@ def main():
         orient.append(dict(core=core, azimuth=azimuth, dip=dip, note=chosen_note))
     orient = pd.DataFrame(orient).set_index("core")
     head_2g = files_check.assign(core=files_check["specimen"].map(core_of)).groupby("core")[["azimuth_2g", "dip_2g"]]
-    # samples: the pieces oriented in the field, cores, or for GTX08 and GTX10 hand blocks from which cores were
-    # drilled in the laboratory, each core with its own orientation, which is entered on its specimens
+    # samples: the cores, each with its orientation. At GTX08 and GTX10 the cores were drilled in the laboratory
+    # from hand blocks oriented in the field, each core with its own orientation: the core is the sample, as
+    # PmagPy (Demag GUI, ipmag.zeq_magic) and MagIC's plots take orientations from the samples table only
     samples = []
-    for sample, cores in orient.groupby(orient.index.map(lambda c: sample_of(c + "A")), sort=False):
-        site = site_of(sample)
+    for core, o in orient.iterrows():
+        site = site_of(core)
         t1 = site_info(site)
-        row = OrderedDict(sample=sample, site=site, method_codes=pub.ORIENTATION_CORES,
-                          lat=t1["lat"], lon=t1["lon"], citations="This study", description="")
+        row = OrderedDict(sample=core, site=site, azimuth=o["azimuth"], dip=o["dip"],
+                          method_codes=pub.ORIENTATION_CORES, lat=t1["lat"], lon=t1["lon"], citations="This study",
+                          description=o["note"])
+        h = head_2g.first().loc[core] if core in head_2g.groups else None
         if site in pub.BLOCK_SITES:
-            block_2g = head_2g.first().loc[cores.index].drop_duplicates()
-            if len(block_2g) != 1:
-                raise RuntimeError(f"the 2G files of the cores of block {sample} give different orientations")
+            block = block_of(core + "A")
+            block_cores = [c for c in orient.index if block_of(c + "A") == block]
+            if len(head_2g.first().loc[block_cores].drop_duplicates()) != 1:
+                raise RuntimeError(f"the 2G files of the cores of block {block} give different orientations")
             row.update(method_codes=pub.ORIENTATION_BLOCKS, description=(
-                f"Hand block oriented in the field with a magnetic compass (text). The cores {', '.join(cores.index)} "
-                "were drilled from it in the laboratory, each with its own orientation (the .rs3 files), which is "
-                "entered on its specimens. The 2G files of the cores all give one orientation, that of the block "
-                f"(read by PmagPy as azimuth {block_2g['azimuth_2g'].iloc[0]:g}, dip {block_2g['dip_2g'].iloc[0]:g}), "
-                "but neither the files nor the paper say how the orientations of the cores were derived from it, so "
-                "the block has no orientation entered."))
-        else:
-            o = cores.iloc[0]
-            row.update(azimuth=o["azimuth"], dip=o["dip"])
-            if sample in head_2g.groups:
-                h = head_2g.first().loc[sample]
-                if abs(h["azimuth_2g"] - o["azimuth"]) > 0.5 or abs(h["dip_2g"] - o["dip"]) > 0.5:
-                    raise RuntimeError(f"core {sample}: the 2G and .rs3 files give different orientations")
-            if o["note"]:
-                row["description"] = o["note"]
+                f"A core drilled in the laboratory from the hand block {block}, which was oriented in the field with "
+                "a magnetic compass (text); the orientation is that of the core (.rs3 file), which the directions "
+                "of Table I follow. The 2G files give one orientation for all the cores of the block (read by "
+                f"PmagPy as azimuth {h['azimuth_2g']:g}, dip {h['dip_2g']:g}). The site mean of Table 2 averages "
+                "the hand blocks."))
+        elif h is not None and (abs(h["azimuth_2g"] - o["azimuth"]) > 0.5 or abs(h["dip_2g"] - o["dip"]) > 0.5):
+            raise RuntimeError(f"core {core}: the 2G and .rs3 files give different orientations")
         samples.append(row)
     samp = geology(pd.DataFrame(samples))
-    # the specimens of the blocks: the orientation of their core
-    in_blocks = spec["specimen"].map(site_of).isin(pub.BLOCK_SITES)
-    spec.loc[in_blocks, "azimuth"] = spec.loc[in_blocks, "specimen"].map(lambda s: orient.loc[core_of(s), "azimuth"])
-    spec.loc[in_blocks, "dip"] = spec.loc[in_blocks, "specimen"].map(lambda s: orient.loc[core_of(s), "dip"])
-    for specimen in spec.loc[in_blocks, "specimen"].unique():
-        append(spec, spec["specimen"] == specimen,
-               f"Cut from core {core_of(specimen)}, drilled in the laboratory from the oriented hand block "
-               f"{block_of(specimen)}; the azimuth and dip are those of the core (.rs3 file).")
     regeo_notes = rotate_geographic(spec, orient)
     geo = spec[spec["dir_tilt_correction"] == 0]
     chrm = chrm_rows(geo)
@@ -1254,15 +1306,7 @@ def main():
     # samples of the Thellier specimens that have no demagnetized specimen
     new_samples = []
     for sample in sorted(set(thellier_spec["sample"]) - set(samp["sample"])):
-        site, t1 = site_of(sample), site_info(site_of(sample))
-        block = sample.startswith("GTX") and len(sample) == 7 and site in pub.BLOCK_SITES + pub.UNORIENTED_SITES
-        text = ("Unoriented hand block (text)" if site in pub.UNORIENTED_SITES else
-                "Hand block, oriented in the field (text)" if block else "Core")
-        new_samples.append(OrderedDict(
-            sample=sample, site=site, method_codes="FS-H" if block else "FS-FD", lat=t1["lat"], lon=t1["lon"],
-            citations="This study",
-            description=f"{text}; named in the paleointensity files, which give no orientation, and with no "
-                        "demagnetization file."))
+        new_samples.append(extra_sample(sample, "paleointensity", samp))
     samp = pd.concat([samp, geology(pd.DataFrame(new_samples))], ignore_index=True)
     spec = pd.concat([spec, geology(thellier_spec)], ignore_index=True)
     meas = pd.concat([meas, thellier_meas], ignore_index=True)
@@ -1274,10 +1318,7 @@ def main():
     ts_meas, ts_spec, ts_check, table_iv = build_thermal_stability(folder.parent / "THERMAL STABILITY", known)
     missing = sorted((set(rock_spec["sample"]) | set(ts_spec["sample"])) - known)
     if missing:
-        new = [OrderedDict(sample=x, site=site_of(x), method_codes="FS-FD", lat=site_info(site_of(x))["lat"],
-                           lon=site_info(site_of(x))["lon"], citations="This study",
-                           description="Core named in the rock-magnetic files, with no demagnetization file.")
-               for x in missing]
+        new = [extra_sample(x, "rock-magnetic", samp) for x in missing]
         samp = pd.concat([samp, geology(pd.DataFrame(new))], ignore_index=True)
     spec = pd.concat([spec, geology(rock_spec), geology(ts_spec)], ignore_index=True)
     meas = pd.concat([meas, rock_meas, ts_meas], ignore_index=True)
@@ -1299,25 +1340,28 @@ def main():
                                             pub.TABLE2_DIRECTIONS.set_index("site").loc[r.site])
                     for r in site_check[~site_check["reproduced"]].itertuples()}
     vgp_check = recalculate_vgps()
+    mean_pole_check = recalculate_mean_poles()
 
     sites = []
     for t1 in pub.TABLE1.itertuples():
         row = OrderedDict(site=t1.site, location=pub.LOCATION, result_type="i", citations="This study",
-                          lat=t1.lat, lon=t1.lon, age=t1.age, age_low=t1.age - t1.age_pm, age_high=t1.age + t1.age_pm,
+                          lat=t1.lat, lon=t1.lon, age=t1.age, age_low=age_bounds(t1.age, t1.age_pm)[0],
+                          age_high=age_bounds(t1.age, t1.age_pm)[1],
                           age_unit="ka", method_codes="", description=f"Locality: {t1.locality} (Table 1).")
         p = pub.TABLE2_DIRECTIONS[pub.TABLE2_DIRECTIONS["site"] == t1.site]
         if not p.empty:
             p = p.iloc[0]
             c = site_check[site_check["site"] == t1.site].iloc[0]
             t3 = pub.TABLE3[pub.TABLE3["site"] == t1.site].iloc[0]
-            level = "hand blocks" if t1.site in pub.BLOCK_SITES else "samples (cores)"
+            level = ("hand blocks (the cores drilled from them are the samples entered)"
+                     if t1.site in pub.BLOCK_SITES else "samples (cores)")
             codes = set(":".join(spec[spec["specimen"].isin(c.specimens)]["method_codes"]).split(":"))
             lp = [x for x in ("LP-DIR-T", "LP-DIR-AF") if x in codes]
             row.update(dir_dec=p.dec, dir_inc=p.inc, dir_alpha95=p.a95, dir_n_samples=int(p.n),
                        dir_n_specimens=c.n_specimens, dir_tilt_correction=0,
                        vgp_lat=t3["vgp_lat"], vgp_lon=t3["vgp_lon"], vgp_dp=t3["dp"], vgp_dm=t3["dm"],
-                       result_quality="g", method_codes=join(["DE-BFL", "DE-FM", "DE-VGP"] + lp + ["DA-DIR-GEO"]),
-                       specimens=join(c.specimens), samples=join(sorted({sample_of(s) for s in c.specimens})))
+                       result_quality="g", method_codes=join(["DE-BFL", "DE-FM", "DE-DI"] + lp + ["DA-DIR-GEO"]),
+                       specimens=join(c.specimens), samples=join(sorted({core_of(s) for s in c.specimens})))
             if c.reproduced:
                 row["dir_k"] = round(c.k, 1)
             text = (f" Direction (Table 2): hierarchical mean of {int(p.n)} {level}, each the Fisher mean of its "
@@ -1341,7 +1385,7 @@ def main():
                                    "(text).")
         elif t1.site in pub.UNORIENTED_SITES:
             row["description"] += " Unoriented hand blocks, for paleointensity and rock magnetism only (text)."
-        row["description"] += f" Age: {pub.DATING[t1.dating][1]}; the ± of Table 1 is entered as the lower and upper bounds of the age."
+        row["description"] += f" Age: {age_text(t1.site, t1.dating)}"
         sites.append(row)
     sites = geology(pd.DataFrame(sites))
     if (sites["method_codes"] == "").any():
@@ -1372,11 +1416,11 @@ def main():
                 f"{int(t4.class_a)}/{int(t4.class_b)}/{int(t4.class_c)}. VADM from Table 3.")
         if abs(check["B_all"] - p.B) > 0.051 or (pd.notna(p.dB) and abs(check["dB_all"] - p.dB) > 0.051):
             text += (f" From the determinations of Table III: {check['B_all']:.2f} ± {check['dB_all']:.2f} μT.")
-        text += f" Age: {pub.DATING[t1['dating']][1]}; the ± of Table 1 is entered as the lower and upper bounds of the age."
+        text += f" Age: {age_text(p.site, t1['dating'])}"
         intensity_rows.append(OrderedDict(
             site=p.site, location=pub.LOCATION, result_type="i", result_quality="g", citations="This study",
-            lat=t1["lat"], lon=t1["lon"], age=t1["age"], age_low=t1["age"] - t1["age_pm"],
-            age_high=t1["age"] + t1["age_pm"], age_unit="ka", method_codes=join(codes),
+            lat=t1["lat"], lon=t1["lon"], age=t1["age"], age_low=age_bounds(t1["age"], t1["age_pm"])[0],
+            age_high=age_bounds(t1["age"], t1["age_pm"])[1], age_unit="ka", method_codes=join(codes),
             int_abs=f"{p.B * 1e-6:.3e}", int_abs_sigma=f"{p.dB * 1e-6:.2e}", int_n_specimens=int(p.n),
             vadm=f"{t3['vadm'] * 1e22:.3e}", vadm_sigma=f"{t3['vadm_sigma'] * 1e22:.2e}",
             specimens=join(names), samples=join(sorted(set(thellier_spec.set_index("specimen").loc[names, "sample"]))),
@@ -1395,26 +1439,46 @@ def main():
 
     # ---- ages (Table 1)
     ages = pd.DataFrame([OrderedDict(
-        site=t.site, age=t.age, age_low=t.age - t.age_pm, age_high=t.age + t.age_pm, age_unit="ka",
+        site=t.site, age=t.age, age_low=age_bounds(t.age, t.age_pm)[0], age_high=age_bounds(t.age, t.age_pm)[1],
+        age_unit="ka",
         method_codes=pub.DATING[t.dating][0],
         citations="10.1016/j.qsa.2025.100267" if t.dating == "Ar" else "This study",
-        description=f"{pub.DATING[t.dating][1]}, as given in Table 1 ({t.age} ± {t.age_pm} ka BP; the table does "
-                    "not say what the uncertainty is).") for t in pub.TABLE1.itertuples()])
+        description=f"Table 1: {t.age} ± {t.age_pm} ka BP. {age_text(t.site, t.dating)}")
+        for t in pub.TABLE1.itertuples()])
 
-    # ---- location
-    lats, lons = pub.TABLE1["lat"], pub.TABLE1["lon"]
-    groups = "; ".join(f"{g.group} ({g.sites.replace(':', ', ')}): {g.pole_lat}°N, {g.pole_lon}°E, A95 {g.A95}°"
-                       for g in pub.MEAN_POLES.itertuples())
-    locations = pd.DataFrame([OrderedDict(
-        location=pub.LOCATION, location_type="Region", result_type="i", citations="This study",
-        geologic_classes=pub.GEOLOGIC_CLASSES, lithologies=pub.LITHOLOGIES,
-        country="Spain", continent_ocean="Europe", lat_s=lats.min(), lat_n=lats.max(), lon_w=lons.min(),
-        lon_e=lons.max(), age_low=float((pub.TABLE1["age"] - pub.TABLE1["age_pm"]).min()),
-        age_high=float((pub.TABLE1["age"] + pub.TABLE1["age_pm"]).max()), age_unit="ka",
-        sites=join(pub.TABLE1["site"]),
-        description=("Fifteen Late Pleistocene lava flows of La Garrotxa Volcanic Field, NE Iberia. The paper gives "
-                     "no mean direction for the field. Mean poles of sites with the same isotopic age (Table 3): "
-                     f"{groups}; the authors use only the VGPs of single flows in the discussion."))])
+    # ---- locations: the volcanic field, and the published mean poles of groups of its sites as rows with the
+    # same location name
+    def location_row(site_names, **columns):
+        t1 = pub.TABLE1.set_index("site").loc[site_names]
+        bounds = [age_bounds(t.age, t.age_pm) for t in t1.itertuples()]
+        return OrderedDict(
+            location=pub.LOCATION, location_type="Region", citations="This study",
+            geologic_classes=pub.GEOLOGIC_CLASSES, lithologies=pub.LITHOLOGIES, country="Spain",
+            continent_ocean="Europe", lat_s=t1["lat"].min(), lat_n=t1["lat"].max(), lon_w=t1["lon"].min(),
+            lon_e=t1["lon"].max(), age_low=min(b[0] for b in bounds), age_high=max(b[1] for b in bounds),
+            age_unit="ka", sites=join(site_names), **columns)
+
+    rows = [location_row(list(pub.TABLE1["site"]), result_type="i", description=(
+        "Fifteen Late Pleistocene lava flows of La Garrotxa Volcanic Field, NE Iberia. The mean poles of groups of "
+        "flows with the same 40Ar/39Ar age (Table 3) are the rows P1 to P3."))]
+    for g, c in zip(pub.MEAN_POLES.itertuples(), mean_pole_check.itertuples()):
+        sites_g = g.sites.split(":")
+        t1 = pub.TABLE1.set_index("site").loc[sites_g]
+        if t1["age"].nunique() != 1:
+            raise RuntimeError(f"the sites of mean pole {g.group} have different ages")
+        text = (f"Mean pole {g.group} of Table 3: the Fisher mean of the VGPs of {', '.join(sites_g)}, flows with the "
+                f"40Ar/39Ar age {t1['age'].iloc[0]} ± {t1['age_pm'].iloc[0]} ka (Table 1). "
+                + ("Recalculated from the VGPs of Table 3 to the printed precision. " if c.reproduced else
+                   f"Not reproduced from the VGPs of Table 3: {c.lat:.1f}°N, {c.lon:.1f}°E, A95 {c.A95:.1f}°. ")
+                + (f"Mean VADM of {' and '.join(t1.index[pub.TABLE3.set_index('site').loc[sites_g, 'vadm'].notna()])} "
+                   f"(Table 3): {g.vadm} ± {g.vadm_sigma} × 10²² Am². " if pd.notna(g.vadm) else "")
+                + "The authors use only the VGPs of single flows in the discussion.")
+        row = location_row(sites_g, result_name=g.group, result_type="a", result_quality="g",
+                           method_codes="DE-VGP:DE-FM:DE-GRP", pole_lat=g.pole_lat, pole_lon=g.pole_lon,
+                           pole_alpha95=g.A95, pole_n_sites=len(sites_g), description=text)
+        row.update(age=t1["age"].iloc[0])
+        rows.append(row)
+    locations = pd.DataFrame(rows)
 
     # ---- assemble, validate, write
     meas["sequence"] = range(1, len(meas) + 1)
@@ -1455,6 +1519,7 @@ def recalculated(v):
             "Table I",
             f"{int(sites['reproduced'].sum())} of {len(sites)} site directions",
             f"{int((vgps['angle'] <= 0.1).sum())} of {len(vgps)} VGPs",
+            f"{int(v['mean_pole_check']['reproduced'].sum())} of {len(v['mean_pole_check'])} mean poles",
             f"{int(th['B_agrees'].sum())} of {len(th)} Thellier-Coe determinations (Table III)",
             f"{int(pi_sites.sum())} of {len(pi_sites)} site paleointensities",
             f"{int(vadm.sum())} of {len(vadm)} VADMs",
@@ -1485,7 +1550,7 @@ def write_report(v):
            f"| samples | {len(v['samp'])} cores and hand blocks | files; text |",
            f"| sites | {len(v['sites'])}: {len(pub.TABLE1)} with the direction and VGP (13) or a description, and "
            f"{len(v['intensity_rows'])} paleointensities | Tables 1 to 4 |",
-           "| locations | 1 | Tables 1 and 3 |",
+           f"| locations | {len(v['locations'])}: the volcanic field, and the mean poles of Table 3 | Tables 1 and 3 |",
            f"| ages | {len(v['ages'])} | Table 1 |",
            f"| criteria | {len(v['criteria'])} | Table II |", "",
            "## Validation with the rules of MagIC (`pmagpy.magic_validation`)\n",
@@ -1518,8 +1583,8 @@ def write_report(v):
                f"({', '.join(moved['specimen'])}): all the specimens of GTX08 and GTX10, cores drilled in the "
                "laboratory from hand blocks oriented in the field. The 2G header gives one orientation for all the "
                "cores of a block, and the `.rs3` files the orientation of each core, which the directions of Table I "
-               "follow. The block is the sample, with no orientation entered, and the orientation of each core is "
-               "entered on its specimens (`azimuth`, `dip` of the specimens table). For core GTX0401 the `.rs3` files "
+               "follow and which is entered: the cores are the samples, and the site means average the blocks. For "
+               "core GTX0401 the `.rs3` files "
                "of its two specimens differ, and the orientation entered is the one with which Table I is "
                "reproduced, also that of the 2G files.\n")
     kinds = pd.Series([re.sub(r"\bfits? [\w, ]+? (is|are|has) ", r"fit \1 ", re.sub(r"^-W- [^:]+: (\d+ )?", "", w))
@@ -1554,13 +1619,13 @@ def write_report(v):
                "reproduced. `file_line` is the flag in the file.\n")
     rep.append("## Site means (Table 2)\n")
     rep.append("Hierarchical Fisher means of the characteristic fits that Table I does not discard: the specimens "
-               "of each sample (core, or hand block for GTX08 and GTX10) averaged first.\n")
+               "of each core (each hand block for GTX08 and GTX10) averaged first.\n")
     rep.append(md_table(site_check, ["site", "dec_pub", "inc_pub", "a95_pub", "n_pub", "dec", "inc", "a95", "k", "n",
                                      "n_specimens", "angle", "reproduced", "specimen_mean_reproduced"],
                         {"angle": ".2f"}))
     rep.append(f"\n`specimen_mean_reproduced`: the Fisher mean of the specimens, without averaging each sample first, "
                f"gives the printed mean for {int(site_check['specimen_mean_reproduced'].sum())} of the "
-               f"{len(site_check)} sites (those with one specimen per sample).")
+               f"{len(site_check)} sites (in direction within {REPRODUCED}° and α95 within 0.05°).")
     for site, sub in v["subset_check"].items():
         closest, same_n = sub["closest"], sub["same_n"]
         rep.append(f"\n{site}: of the {sub['subsets']} subsets of the specimens of the site (with those Table I "
@@ -1581,6 +1646,17 @@ def write_report(v):
                + ", ".join(f"{r.site} (dp {r.dp:.2f}, dm {r.dm:.2f})" for r in vgp_check[~errors].itertuples()) + ".")
     # ---- paleointensity
     th, copies, pi_files = v["thellier_check"], v["copies"], v["pi_files"]
+    mp = v["mean_pole_check"]
+    rep.append("\n## Mean poles (Table 3)\n")
+    rep.append("The mean poles of groups of sites with the same 40Ar/39Ar age, against the Fisher mean of the VGPs of "
+               "Table 3 of their sites (`pmag.fisher_mean`); `angle_of_mean_direction_pole` is the angle to the pole "
+               "of the Fisher mean of their site directions (Table 2), which the published poles are not. The mean "
+               "VADM of P1 is recalculated as the mean and standard deviation of the VADMs of its sites.\n")
+    rep.append(md_table(mp, ["group", "sites", "lat_pub", "lon_pub", "A95_pub", "lat", "lon", "A95", "angle",
+                             "angle_of_mean_direction_pole", "vadm_pub", "vadm", "vadm_sigma_pub", "vadm_sigma",
+                             "reproduced"],
+                        {"lat": ".1f", "lon": ".1f", "A95": ".1f", "angle": ".2f", "angle_of_mean_direction_pole": ".2f",
+                         "vadm": ".2f", "vadm_sigma": ".2f", "vadm_pub": ".2f", "vadm_sigma_pub": ".2f"}))
     rep.append("\n## Thellier-Coe files\n")
     n_ltd = int((pi_files["ltd"] == "yes").sum())
     rep.append(f"The archive holds {len(pi_files) + len(copies)} `.TDT` files: {len(pi_files)} specimens "
@@ -1642,8 +1718,7 @@ def write_report(v):
     rep.append("\n## Rock-magnetic files\n")
     rep.append(f"{len(v['rock_spec'])} powders, each with four VFTB curves, converted with `convert_2_magic.vftb`: "
                + "; ".join(f"{code} {r.curves} curves, {r.points} points" for code, r in counts.iterrows())
-               + f". Each powder is entered with the suffix `{pub.ROCKMAG_SUFFIX}`, in its sample (the core, or the "
-               "hand block for GTX08 and GTX10). The "
+               + f". Each powder is entered with the suffix `{pub.ROCKMAG_SUFFIX}`, in the sample of its core. The "
                "paper gives no rock-magnetic values per sample (only the Day plot of Fig. 2C), so none is entered. For "
                "the record, and as a check of PmagPy on these curves:\n")
     rep.append(md_table(rock, ["specimen", "points", "bcr", "ms", "ms_branch", "mr", "mr_branch", "bc", "bc_branch",
@@ -1697,12 +1772,9 @@ def write_report(v):
                + ". For GTX0505 the cycle to 500 °C gives the ratio printed for T3 (600 °C) and the cycle to 600 °C the "
                "one printed for T1 (500 °C). Table IV prints no ratio for OLO106.\n")
     rep.append("\n## Information that would complete the contribution\n")
-    rep.append("- What the ± of the ages in Table 1 is (one or two standard deviations).")
-    rep.append("- The unit of the moments of the `.TDT` files (entered as A/m) and the volumes of the microcores.")
-    rep.append("- Whether the NRM of the LTD specimens was measured after a low-temperature demagnetization.")
-    rep.append("- The ninth Thellier-Coe specimen of OL03 (Tables 2 and 4 count 9; Table III and the archive have 8).")
-    rep.append("- The field of the 11 thermal-stability cycles whose files do not record it.")
-    rep.append("- What the second sets of rock-magnetic curves (`_MAL`) of GTX0208B and GTX0307inf are.")
+    rep.append("Not needed for any result entered, and not asked of the authors (README.md, \"Questions for the "
+               "authors\"):\n")
+    rep.append("- The volumes of the Thellier-Coe microcores, which would give their moments (`magn_moment`) as well.")
     rep.append("- The rock-magnetic parameters of each powder, which the paper plots (Fig. 2C) but does not list.")
     return rep
 

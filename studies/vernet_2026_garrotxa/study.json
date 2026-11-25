@@ -19,11 +19,11 @@
   "authors_contacted": null,
   "build": {
     "pmagpy_version": "4.6.0",
-    "pmagpy_commit": "0f3732a90b231c2a6260e9c87a8cdb5494c311ce",
+    "pmagpy_commit": "b1ff589599bab14260aa60913a5a55aa9483e51c",
     "rows": {
-      "locations": 1,
+      "locations": 4,
       "sites": 25,
-      "samples": 114,
+      "samples": 129,
       "specimens": 467,
       "measurements": 21022,
       "ages": 15,
@@ -35,6 +35,7 @@
       "130 of 134 specimen fits of Table I",
       "12 of 13 site directions",
       "13 of 13 VGPs",
+      "3 of 3 mean poles",
       "103 of 105 Thellier-Coe determinations (Table III)",
       "10 of 10 site paleointensities",
       "10 of 10 VADMs",

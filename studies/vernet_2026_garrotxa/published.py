@@ -47,7 +47,7 @@ OL_STEP_TYPE = "T"
 # ------------------------------------------------------------------ Table 1
 # site, locality name, age (ka BP), ± as printed, dating method, latitude, longitude (degrees)
 # Dating: "40Ar/39Ar (1)" = Martí et al. (2025); "TH in Pl (2)" = thermoluminescence in
-# plagioclase, Guerin et al. (1985). The table does not say what the ± is.
+# plagioclase, Guerin et al. (1985). The table does not say what the ± is (see AGE_UNCERTAINTY).
 TABLE1 = pd.DataFrame([
     ("GTX03", "Triai", 15.86, 4.21, "Ar", 42.1661838, 2.4997058),
     ("OL03", "Pomareda en el Croscat", 15.86, 4.21, "Ar", 42.1582200, 2.5302390),
@@ -68,6 +68,25 @@ TABLE1 = pd.DataFrame([
 DATING = {
     "Ar": ("GM-ARAR", "Martí et al. (2025), 40Ar/39Ar"),
     "TL": ("GM-LUM-TH", "Guerin et al. (1985), thermoluminescence in plagioclase"),
+}
+# The ± of Table 1. Martí et al. (2025, section 3): 40Ar/39Ar "uncertainties are reported at the 2σ" (their
+# Table 1: "Plateau Age ± 2σ"). Guerin et al. (1985) is not available here; the paper does not say.
+AGE_UNCERTAINTY = {
+    "Ar": "2σ (Martí et al., 2025)",
+    "TL": "of a level that the paper does not state",
+}
+# Where Martí et al. (2025) print a value other than Table 1 of Vernet et al. (Table 1 of Vernet et al. is
+# entered). ZVG7 Pla de Dalt: 61.81 ± 6.34 ka; ZVG14 Roca Negra: 68.63 ± 12.73 in their Table 1 and 69.63 ± 12.73
+# in their Table 2; Batet: 129.20 ± 4.38 in their Table 2, while their Table 1 gives 129.38 ± 4.00 (ZVG10 Batet
+# de la Serra) and 129.26 ± 6.63 (ZVG11 El Torn). The others (15.86, 17.35, 26.76 ka) are the same.
+AGE_NOTES = {
+    "GTX01": "Martí et al. (2025) give 61.81 ± 6.34 ka (sample ZVG7, Pla de Dalt).",
+    "GTX04": "Martí et al. (2025) give 68.63 ± 12.73 ka in their Table 1 (sample ZVG14, Roca Negra) and "
+             "69.63 ± 12.73 ka in their Table 2.",
+    "OL02": "Martí et al. (2025) give 68.63 ± 12.73 ka in their Table 1 (sample ZVG14, Roca Negra) and "
+            "69.63 ± 12.73 ka in their Table 2.",
+    "GTX11": "Martí et al. (2025) give 129.20 ± 4.38 ka for the Batet lava in their Table 2; their Table 1 gives "
+             "129.38 ± 4.00 ka (ZVG10, Batet de la Serra) and 129.26 ± 6.63 ka (ZVG11, El Torn).",
 }
 
 # ------------------------------------------------------------------ Table 2: site directions
@@ -128,14 +147,14 @@ TABLE3 = pd.DataFrame([
     ("GTX11", None, None, None, None, 4.84, 0.54),
     ("GTX10", 67.9, 90.2, 9.48, 12.77, 5.19, 0.22),
 ], columns=["site", "vgp_lat", "vgp_lon", "dp", "dm", "vadm", "vadm_sigma"])
-# Table 3, "Mean poles" of sites with the same isotopic age (text: P1, P2, P3), and the mean VADMs
-# of P1 (6.54 ± 0.21) and P2 printed in the same rows. The text: "only VGPs calculated per lava flow
+# Table 3, "Mean poles" of sites with the same isotopic age (text: P1, P2, P3), and the mean VADM printed
+# in the same row (P1 only: 6.54 ± 0.21; "-" for P2 and P3). The text: "only VGPs calculated per lava flow
 # were considered for the discussion."
 MEAN_POLES = pd.DataFrame([
-    ("P1", "GTX03:OL03:OL04", 79.4, 165.0, 13.1),
-    ("P2", "GTX08:GTX09:OL01", 62.6, 126.7, 24.0),
-    ("P3", "GTX04:OL02", 77.1, 78.2, 52.6),
-], columns=["group", "sites", "pole_lat", "pole_lon", "A95"])
+    ("P1", "GTX03:OL03:OL04", 79.4, 165.0, 13.1, 6.54, 0.21),
+    ("P2", "GTX08:GTX09:OL01", 62.6, 126.7, 24.0, None, None),
+    ("P3", "GTX04:OL02", 77.1, 78.2, 52.6, None, None),
+], columns=["group", "sites", "pole_lat", "pole_lon", "A95", "vadm", "vadm_sigma"])
 
 # ------------------------------------------------------------------ Table I (appendix)
 # specimen, discarded ("*"), treatment, Min., Max. (°C or mT), line ("OA": "anchored to the origin";
@@ -290,13 +309,14 @@ TABLE_I_FILE_DIRECTION = {"GTX0108A": (298.7, 84.0)}
 # GTX0702A: the file holds a fit over 390-520 °C; Table I and the site mean use one over 100-390 °C.
 TABLE_I_REFIT = {"GTX0702A": ("100", "390")}
 # GTX0103A: the 2G file and the .rs3 file list a step at 420 °C first and then one labelled NRM, before the
-# alternating-field steps. The 2G file gives the time of each measurement: 420 °C on 15 Dec 2023 at 10:59,
-# "NRM" at 12:25, 2 mT at 12:28. The "NRM" is therefore a second measurement after heating to 420 °C, with
-# no treatment in between, and is entered as such (temperature in °C, description).
-NRM_AFTER_HEATING = {"GTX0103A": (420, "Labelled NRM in the files, but measured after the 420 °C step (the 2G "
-                                       "file gives 15 Dec 2023, 10:59 for 420 °C and 12:25 for this measurement) "
-                                       "and before the alternating-field steps: a second measurement after heating "
-                                       "to 420 °C.")}
+# alternating-field steps. Each record of the 2G file ends with the time of its measurement (the file header
+# has a time of its own): 420 °C on 15 Dec 2023 at 12:25, "NRM" at 12:28, 2 mT on 19 Dec 2023 at 15:58.
+# The "NRM" is therefore a second measurement after heating to 420 °C, with no treatment in between, and is
+# entered as such (temperature in °C, description).
+NRM_AFTER_HEATING = {"GTX0103A": (420, "Labelled NRM in the files, but measured 3 minutes after the 420 °C step "
+                                       "(the 2G file gives 15 Dec 2023, 12:25 for 420 °C and 12:28 for this "
+                                       "measurement; the first alternating-field step followed on 19 Dec): a second "
+                                       "measurement after heating to 420 °C.")}
 
 # ------------------------------------------------------------------ paleointensity: text of the paper
 # "The laboratory field applied for the in-field steps was 40 µT"; pTRM checks "starting from 300 ˚C";
