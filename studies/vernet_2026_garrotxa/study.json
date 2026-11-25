@@ -13,16 +13,17 @@
     "VFTB"
   ],
   "tier": "measurements",
-  "status": "converted; PmagPy branches to be proposed; not uploaded",
+  "status": "converted and audited; builds from PmagPy master after #1060; not uploaded",
   "magic_contribution_id": null,
   "upload_commit": null,
   "authors_contacted": null,
   "build": {
     "pmagpy_version": "4.6.0",
+    "pmagpy_commit": "0f3732a90b231c2a6260e9c87a8cdb5494c311ce",
     "rows": {
       "locations": 1,
       "sites": 25,
-      "samples": 129,
+      "samples": 114,
       "specimens": 467,
       "measurements": 21022,
       "ages": 15,
@@ -37,7 +38,7 @@
       "103 of 105 Thellier-Coe determinations (Table III)",
       "10 of 10 site paleointensities",
       "10 of 10 VADMs",
-      "46 of 55 thermal-stability ratios (Table IV)"
+      "47 of 55 thermal-stability ratios (Table IV)"
     ]
   }
 }

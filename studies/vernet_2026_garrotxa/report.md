@@ -8,7 +8,7 @@ Written by `convert.py`; do not edit. Study: Vernet et al. (2026), doi:10.1344/G
 | --- | --- | --- |
 | measurements | 21022: 1531 demagnetization steps from the 99 2G files (GTX sites), 436 from the 35 `.rs3` files of the OL sites, 4035 Thellier-Coe steps (`.TDT`), 6730 points of rock-magnetic curves and 8290 of thermal-stability cycles (VFTB) | files |
 | specimens | 467 rows for 317 specimens: 134 demagnetized (the stored fits in specimen and geographic coordinates, and 2 rows of a Table I fit recalculated here), 128 Thellier-Coe (105 with a determination of Table III), 21 rock-magnetic powders, 34 thermal-stability pieces | files; Tables I, III and IV |
-| samples | 129 cores and hand blocks | files; text |
+| samples | 114 cores and hand blocks | files; text |
 | sites | 25: 15 with the direction and VGP (13) or a description, and 10 paleointensities | Tables 1 to 4 |
 | locations | 1 | Tables 1 and 3 |
 | ages | 15 | Table 1 |
@@ -41,13 +41,13 @@ The 99 GTX specimens have both a 2G binary file and a `.rs3` file. Read with `co
 | GTX080202A | 11 | 10 | 1 |  |
 | GTX080301B | 16 | 15 | 0 | 100 mT |
 
-The orientation in the 2G header differs from the one entered for 19 specimens (GTX080101A, GTX080102A, GTX080102B, GTX080103A, GTX080201A, GTX080202A, GTX080203A, GTX080301A, GTX080301B, GTX080303A, GTX100101A, GTX100101B, GTX100102A, GTX100103A, GTX100201A, GTX100202A, GTX100203A, GTX100301A, GTX100302A): all the specimens of GTX08 and GTX10, cores drilled in the laboratory from oriented blocks, whose `.rs3` files hold the orientation of each core. The directions of Table I follow the `.rs3` files. For core GTX0401 the `.rs3` files of its two specimens differ, and the orientation entered is the one with which Table I is reproduced, also that of the 2G files.
+The orientation in the 2G header differs from that of the `.rs3` files for 19 specimens (GTX080101A, GTX080102A, GTX080102B, GTX080103A, GTX080201A, GTX080202A, GTX080203A, GTX080301A, GTX080301B, GTX080303A, GTX100101A, GTX100101B, GTX100102A, GTX100103A, GTX100201A, GTX100202A, GTX100203A, GTX100301A, GTX100302A): all the specimens of GTX08 and GTX10, cores drilled in the laboratory from hand blocks oriented in the field. The 2G header gives one orientation for all the cores of a block, and the `.rs3` files the orientation of each core, which the directions of Table I follow. The block is the sample, with no orientation entered, and the orientation of each core is entered on its specimens (`azimuth`, `dip` of the specimens table). For core GTX0401 the `.rs3` files of its two specimens differ, and the orientation entered is the one with which Table I is reproduced, also that of the 2G files.
 
 Warnings of the converters: 75 from `rs3` (38 × "fit is flagged O (origin included) but is the line anchored to the origin; written as DE-BFL-A"; 35 × "rows with ID M read as thermal (degrees C) steps"; 2 × "fit is not reproduced by the calculation its flag names (see the description)"), 0 from `_2g_bin`.
 
 ## Stored fits recalculated
 
-141 stored line fits, recalculated from the measurements entered between their stated limits: 133 as a anchored line, 8 as a free line.
+141 stored line fits, recalculated from the measurements entered between their stated limits: 133 as an anchored line, 8 as a free line.
 
 | flag | calculation | fits |
 | --- | --- | --- |
@@ -93,23 +93,27 @@ For each of the 134 specimens of Table I, the stored geographic fit closest to t
 
 ## Site means (Table 2)
 
-Hierarchical Fisher means of the characteristic fits that Table I does not discard: the specimens of each core (each hand block for GTX08 and GTX10) averaged first.
+Hierarchical Fisher means of the characteristic fits that Table I does not discard: the specimens of each sample (core, or hand block for GTX08 and GTX10) averaged first.
 
-| site | dec_pub | inc_pub | a95_pub | n_pub | dec | inc | a95 | k | n | n_specimens | angle | reproduced |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| GTX03 | 10.8 | 42.8 | 2.9 | 9 | 10.8 | 42.8 | 2.9 | 311.8 | 9 | 10 | 0.05 | True |
-| OL03 | 356.8 | 55.7 | 7.1 | 6 | 356.8 | 55.7 | 7.1 | 90.9 | 6 | 6 | 0.05 | True |
-| OL04 | 2.8 | 53.8 | 4.4 | 9 | 2.8 | 53.8 | 4.4 | 137.6 | 9 | 9 | 0.01 | True |
-| GTX08 | 19.2 | 18.3 | 10.8 | 3 | 19.2 | 18.3 | 10.8 | 132.1 | 3 | 10 | 0.04 | True |
-| GTX09 | 36.0 | 46.2 | 18.8 | 6 | 35.4 | 47.4 | 17.7 | 15.2 | 6 | 8 | 1.27 | False |
-| OL01 | 18.9 | 53.4 | 13.7 | 7 | 18.9 | 53.4 | 13.7 | 20.3 | 7 | 7 | 0.03 | True |
-| GTX02 | 7.4 | 51.2 | 4.2 | 6 | 7.4 | 51.2 | 4.2 | 253.6 | 6 | 8 | 0.01 | True |
-| GTX05 | 9.5 | 65.8 | 3.4 | 9 | 9.5 | 65.8 | 3.4 | 232.9 | 9 | 10 | 0.03 | True |
-| GTX01 | 155.7 | 78.2 | 5.5 | 10 | 155.7 | 78.2 | 5.5 | 77.1 | 10 | 10 | 0.03 | True |
-| GTX04 | 31.0 | 57.7 | 5.9 | 7 | 31.0 | 57.7 | 5.9 | 105.2 | 7 | 7 | 0.04 | True |
-| OL02 | 1.8 | 65.6 | 2.1 | 10 | 1.8 | 65.6 | 2.1 | 529.4 | 10 | 10 | 0.05 | True |
-| GTX07 | 1.8 | 52.0 | 5.3 | 9 | 1.8 | 52.0 | 5.3 | 96.3 | 9 | 10 | 0.03 | True |
-| GTX10 | 29.1 | 58.6 | 8.6 | 3 | 29.1 | 58.6 | 8.6 | 206.6 | 3 | 6 | 0.02 | True |
+| site | dec_pub | inc_pub | a95_pub | n_pub | dec | inc | a95 | k | n | n_specimens | angle | reproduced | specimen_mean_reproduced |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| GTX03 | 10.8 | 42.8 | 2.9 | 9 | 10.8 | 42.8 | 2.9 | 311.8 | 9 | 10 | 0.05 | True | False |
+| OL03 | 356.8 | 55.7 | 7.1 | 6 | 356.8 | 55.7 | 7.1 | 90.9 | 6 | 6 | 0.05 | True | True |
+| OL04 | 2.8 | 53.8 | 4.4 | 9 | 2.8 | 53.8 | 4.4 | 137.6 | 9 | 9 | 0.01 | True | True |
+| GTX08 | 19.2 | 18.3 | 10.8 | 3 | 19.2 | 18.3 | 10.8 | 132.1 | 3 | 10 | 0.04 | True | False |
+| GTX09 | 36.0 | 46.2 | 18.8 | 6 | 35.4 | 47.4 | 17.7 | 15.2 | 6 | 8 | 1.27 | False | False |
+| OL01 | 18.9 | 53.4 | 13.7 | 7 | 18.9 | 53.4 | 13.7 | 20.3 | 7 | 7 | 0.03 | True | True |
+| GTX02 | 7.4 | 51.2 | 4.2 | 6 | 7.4 | 51.2 | 4.2 | 253.6 | 6 | 8 | 0.01 | True | False |
+| GTX05 | 9.5 | 65.8 | 3.4 | 9 | 9.5 | 65.8 | 3.4 | 232.9 | 9 | 10 | 0.03 | True | False |
+| GTX01 | 155.7 | 78.2 | 5.5 | 10 | 155.7 | 78.2 | 5.5 | 77.1 | 10 | 10 | 0.03 | True | True |
+| GTX04 | 31.0 | 57.7 | 5.9 | 7 | 31.0 | 57.7 | 5.9 | 105.2 | 7 | 7 | 0.04 | True | True |
+| OL02 | 1.8 | 65.6 | 2.1 | 10 | 1.8 | 65.6 | 2.1 | 529.4 | 10 | 10 | 0.05 | True | True |
+| GTX07 | 1.8 | 52.0 | 5.3 | 9 | 1.8 | 52.0 | 5.3 | 96.3 | 9 | 10 | 0.03 | True | False |
+| GTX10 | 29.1 | 58.6 | 8.6 | 3 | 29.1 | 58.6 | 8.6 | 206.6 | 3 | 6 | 0.02 | True | False |
+
+`specimen_mean_reproduced`: the Fisher mean of the specimens, without averaging each sample first, gives the printed mean for 6 of the 13 sites (those with one specimen per sample).
+
+GTX09: of the 1010 subsets of the specimens of the site (with those Table I discards), 0 give the printed mean (within 0.15° in direction, 0.05° in α95, the same n). The closest in direction: 36.9/46.4, α95 26.7°, n = 4, 0.62° away (GTX0901A, GTX0903A, GTX0906B, GTX0907A); the closest with n = 6: 36.2/46.9, α95 17.6°, 0.73° away (GTX0901A, GTX0902A, GTX0903A, GTX0905A, GTX0906B, GTX0907A).
 
 ## VGPs (Table 3)
 
@@ -131,9 +135,13 @@ From the published site mean and the site coordinates of Table 1 (`pmag.dia_vgp`
 | GTX07 | 80.4 | 173.5 | 4.96 | 7.25 | 80.4 | 173.5 | 4.96 | 7.25 | 0.05 |
 | GTX10 | 67.9 | 90.2 | 9.48 | 12.77 | 67.9 | 90.2 | 9.48 | 12.77 | 0.03 |
 
+The poles of all 13 agree within 0.06°; dp and dm agree to the printed digit for 11, and differ in the last digit for OL01 (dp 13.26, dm 19.06), GTX01 (dp 9.77, dm 10.37).
+
 ## Thellier-Coe files
 
 The archive holds 142 `.TDT` files: 128 specimens (82 standard Thellier-Coe experiments, 46 with a low-temperature demagnetization after each heating step, `LTD_*.TDT`), the 128 rows of Table III, and 14 corrected copies (`*_C.TDT`, `*_CC.TDT`) of 12 of them. They are converted with `convert_2_magic.tdt` (each specimen named after its file, moments in A/m, laboratory field along −Z). The median direction of the pTRMs gained by a specimen is within 10° of −Z for 121 of the 128 specimens, and at most 33.5° from it (LTD_GTX0902St).
+
+The unit of the moments of the `.TDT` files: the NRM of a microcore, read as A/m, over the median NRM of the demagnetized specimens of the same core (2G and `.rs3` files, A/m), where the name of the microcore gives the core: 70 microcores, median 1.04, 10th to 90th percentile 0.33 to 1.78, range 0.11 to 4.38 without LTD, and 36 microcores, median 0.74, 10th to 90th percentile 0.28 to 2.96, range 0.16 to 5.48 with LTD. In mA/m the ratios would be a thousand times smaller.
 
 Each corrected copy is its original file with the measurements listed deleted, and the others unchanged. Where Table III names the copy (`interpreted`), the specimen is entered from its original file and those measurements are flagged bad; the other copies are not entered.
 
@@ -222,7 +230,7 @@ VADMs (Table 3) from the published site paleointensity and the site latitude (`p
 
 ## Rock-magnetic files
 
-21 powders, each with four VFTB curves, converted with `convert_2_magic.vftb`: LP-HYS 21 curves, 1071 points; LP-IMT 21 curves, 4844 points; LP-IRM 21 curves, 315 points; LP-IRM-DCD 21 curves, 500 points. Each powder is entered with the suffix `r`, in the sample of its core. The paper gives no rock-magnetic values per sample (only the Day plot of Fig. 2C), so none is entered. For the record, and as a check of PmagPy on these curves:
+21 powders, each with four VFTB curves, converted with `convert_2_magic.vftb`: LP-HYS 21 curves, 1071 points; LP-IMT 21 curves, 4844 points; LP-IRM 21 curves, 315 points; LP-IRM-DCD 21 curves, 500 points. Each powder is entered with the suffix `r`, in its sample (the core, or the hand block for GTX08 and GTX10). The paper gives no rock-magnetic values per sample (only the Day plot of Fig. 2C), so none is entered. For the record, and as a check of PmagPy on these curves:
 
 | specimen | points | bcr | ms | ms_branch | mr | mr_branch | bc | bc_branch | mr_ms | bcr_bc |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -248,73 +256,75 @@ VADMs (Table 3) from the published site paleointensity and the site latitude (`p
 | OL0401Br | 41 | 49.0 | 0.340 | 0.347 | 0.089 | 0.089 | 26.2 | 25.1 | 0.255 | 1.96 |
 | OL0406Br | 41 | 36.4 | 1.029 | 1.046 | 0.113 | 0.205 | 11.0 | 16.0 | 0.196 | 2.28 |
 
-Moments in Am²/kg, fields in mT. `bcr`: zero crossing of the back-field curve (`rockmag.process_backfield_data`, which needs the fix of PmagPy issue #1049 for curves that start at zero field). `ms`, `mr`, `bc`: `rockmag.process_hyst_loop` (which needs the initial curve of the file to be left out, the second point of issue #1048); `_branch`: read from the measured branches after removing the high-field slope above 60 percent of the peak field. `process_hyst_loop` gives Mr -94 to 55 percent and Bc -89 to 41 percent from the branch values, and Ms -4.8 to 0.9 percent: the loops have 41 to 41 points, unevenly spaced, which the function resamples on an even grid (the first point of issue #1048). `mr_ms` and `bcr_bc` are from the branch values.
+Moments in Am²/kg, fields in mT. `bcr`: zero crossing of the back-field curve (`rockmag.process_backfield_data`). `ms`, `mr`, `bc`: `rockmag.process_hyst_loop`, which leaves out the initial magnetization curve at the start of each file; `_branch`: read from the measured branches after removing the high-field slope above 60 percent of the peak field. `process_hyst_loop` gives Mr -94 to 55 percent and Bc -89 to 41 percent from the branch values, and Ms -4.8 to 0.9 percent: the loops have 41 points each, unevenly spaced (about 50 mT apart near zero field), and the function resamples a loop on an even grid of its median field step, which does not resolve the loop near zero field. `mr_ms` and `bcr_bc` are from the branch values.
 
 ## Thermal stability (Table IV)
 
-46 magnetization-temperature cycles, converted with `convert_2_magic.vftb`, for the rows of Table IV. MAGF/MAGI is recalculated as the magnetization at the end of the cooling branch over that of the heating branch at the same temperature, linearly interpolated; MAG2F/MAG1I the same with the end of the second cycle and the start of the first. `agrees`: within 0.005.
+46 magnetization-temperature cycles, converted with `convert_2_magic.vftb`, for the rows of Table IV. The field of a cycle (`field_mT`, the median of its file) is 33.3 to 37.4 mT for 35 files (the text gives 38 mT); the other 11 (GTX309B_500, GTX309B_600, GTX501B_500, GTX501B_600, GTX5-5_500, GTX5-5_560, GTX5-5_600, GTX803_250, GTX803_300, OLO106_250, OLO106_300) give -999 in the field column, the missing value of the VFTB software, and their field is left empty.
 
-| row | kind | file | specimen | weight_mg | T_pub | T | ratio_pub | ratio | agrees |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| GTX0206 | MAGF/MAGI | GTX206_540 | GTX0206s | 347 | 540 | 539 | 1.081 | 1.081 | yes |
-| GTX0208 | MAGF/MAGI | GTX0208B | GTX0208s | 294 | 500 | 499 | 1.023 | 1.021 | yes |
-| GTX0308 | MAGF/MAGI | GTX0308B_500 | GTX0308s | 433 | 500 | 499 | 0.944 | 0.942 | yes |
-| GTX0308 | MAGF/MAGI | GTX308B_570 | GTX0308s | 433 | 570 | 569 | 1.054 | 1.054 | yes |
-| GTX0308 | MAG2F/MAG1I | GTX308B_570 / GTX0308B_500 | GTX0308s |  |  |  | 0.974 | 0.973 | yes |
-| GTX0309 | MAGF/MAGI | GTX309B_500 | GTX0309s | 398 | 500 | 500 | 0.963 | 0.963 | yes |
-| GTX0309 | MAGF/MAGI | GTX309B_600 | GTX0309s | 398 | 600 | 599 | 1.034 | 1.033 | yes |
-| GTX0309 | MAG2F/MAG1I | GTX309B_600 / GTX309B_500 | GTX0309s |  |  |  | 0.964 | 0.964 | yes |
-| GTX0501 | MAGF/MAGI | GTX501B_500 | GTX0501s | 244 | 500 | 499 | 0.966 | 0.990 | no |
-| GTX0501 | MAGF/MAGI | GTX501B_600 | GTX0501s | 244 | 600 | 598 | 1.035 | 1.042 | no |
-| GTX0501 | MAG2F/MAG1I | GTX501B_600 / GTX501B_500 | GTX0501s |  |  |  | 1.015 | 1.017 | yes |
-| GTX0503 | MAGF/MAGI | GTX503B_500 | GTX0503s | 303 | 500 | 499 | 0.985 | 0.985 | yes |
-| GTX0503 | MAGF/MAGI | GTX503B_600 | GTX0503s | 303 | 600 | 598 | 1.076 | 1.075 | yes |
-| GTX0503 | MAG2F/MAG1I | GTX503B_600 / GTX503B_500 | GTX0503s |  |  |  | 1.045 | 1.041 | yes |
-| GTX0504 | MAGF/MAGI | GTX504B_560 | GTX0504s | 438 | 560 | 559 | 1.004 | 1.004 | yes |
-| GTX0505 | MAGF/MAGI | GTX5-5_500 | GTX0505s | 449 | 500 | 499 | 1.051 | 0.985 | no |
-| GTX0505 | MAGF/MAGI | GTX5-5_560 | GTX0505s2 | 389 | 560 | 559 | 0.998 | 1.000 | yes |
-| GTX0505 | MAGF/MAGI | GTX5-5_600 | GTX0505s | 449 | 600 | 598 | 0.983 | 1.051 | no |
-| GTX0505 | MAG2F/MAG1I | GTX5-5_560 / GTX5-5_500 | GTX0505s |  |  |  | 1.003 | 1.138 | no |
-| GTX0506 | MAGF/MAGI | GTX506B_550 | GTX0506s | 412 | 550 | 547 | 1.005 | 1.005 | yes |
-| GTX0604 | MAGF/MAGI | GTX604B_560 | GTX0604s | 468 | 560 | 559 | 1.053 | 1.051 | yes |
-| GTX0604 | MAGF/MAGI | GTX604_560 | GTX0604s | 468 | 560 | 559 | 1.053 | 1.051 | yes |
-| GTX0605 | MAGF/MAGI | GTX0605A_560 | GTX0605s | 450 | 560 | 559 | 1.018 | 1.019 | yes |
-| GTX0705 | MAGF/MAGI | OLO705B_560 | GTX0705s | 358 | 560 | 559 | 1.028 | 1.026 | yes |
-| GTX0802 | MAGF/MAGI | GTX0802_500 | GTX0802s | 358 | 500 | 499 | 1.033 | 1.033 | yes |
-| GTX0803 | MAGF/MAGI | GTX803_250 | GTX0803s | 415 | 250 | 251 | 1.008 | 1.015 | no |
-| GTX0803 | MAGF/MAGI | GTX803_300 | GTX0803s | 415 | 300 | 300 | 1.021 | 1.025 | yes |
-| GTX0803 | MAG2F/MAG1I | GTX803_300 / GTX803_250 | GTX0803s |  |  |  | 1.010 | 1.017 | no |
-| GTX1001 | MAGF/MAGI | GTX10-1_450 | GTX1001s | 333 | 450 | 449 | 1.053 | 1.053 | yes |
-| GTX1001 | MAGF/MAGI | GTX10-1_520 | GTX1001s | 333 | 520 | 519 | 1.153 | 1.153 | yes |
-| GTX1001 | MAG2F/MAG1I | GTX10-1_520 / GTX10-1_450 | GTX1001s |  |  |  | 1.140 | 1.140 | yes |
-| GTX1003 | MAGF/MAGI | GTX1003_500 | GTX1003s | 398 | 500 | 499 | 1.613 | 1.660 | no |
-| GTX1101 | MAGF/MAGI | GTX1101_500 | GTX1101s | 383 | 500 | 499 | 1.039 | 1.038 | yes |
-| GTX1101 | MAGF/MAGI | GTX1101_600 | GTX1101s | 383 | 600 | 598 | 0.976 | 0.976 | yes |
-| GTX1101 | MAG2F/MAG1I | GTX1101_600 / GTX1101_500 | GTX1101s |  |  |  | 1.015 | 1.014 | yes |
-| GTX1102 | MAGF/MAGI | GTX1102_500 | GTX1102s | 429 | 500 | 499 | 0.955 | 0.958 | yes |
-| GTX1102 | MAGF/MAGI | GTX1102_600 | GTX1102s2 | 406 | 600 | 598 | 0.845 | 0.846 | yes |
-| GTX1103 | MAGF/MAGI | GTX1103_560 | GTX1103s | 479 | 560 | 559 | 0.991 | 0.993 | yes |
-| OLO106 | MAGF/MAGI | OLO106_250 | OL0106s | 122 | 250 | 251 |  | 1.404 |  |
-| OLO106 | MAGF/MAGI | OLO106_300 | OL0106s2 | 354 | 300 | 300 |  | 1.215 |  |
-| OLO201 | MAGF/MAGI | OLO201A_520 | OL0201s | 377 | 520 | 518 | 1.037 | 1.038 | yes |
-| OLO203 | MAGF/MAGI | OLO203B_540 | OL0203s | 524 | 540 | 539 | 0.980 | 0.980 | yes |
-| OLO204 | MAGF/MAGI | OLO204C_560 | OL0204s | 433 | 560 | 559 | 0.987 | 0.988 | yes |
-| OLO209 | MAGF/MAGI | OLO209C_540 | OL0209s | 313 | 540 | 540 | 1.023 | 1.023 | yes |
-| OLO210 | MAGF/MAGI | OLO210B_500 | OL0210s | 431 | 500 | 499 | 0.977 | 0.977 | yes |
-| OLO210 | MAGF/MAGI | OLO210B_600 | OL0210s | 431 | 600 | 598 | 0.977 | 0.977 | yes |
-| OLO210 | MAG2F/MAG1I | OLO210B_600 / OLO210B_500 | OL0210s |  |  |  | 0.942 | 0.943 | yes |
-| OLO404 | MAGF/MAGI | OLO404A_450 | OL0404s | 142 | 450 | 449 | 0.978 | 0.979 | yes |
-| OLO404 | MAGF/MAGI | OLO404A_520 | OL0404s2 | 380 | 520 | 519 | 0.994 | 0.994 | yes |
-| OLO407 | MAGF/MAGI | OLO407A_450 | OL0407s | 406 | 450 | 449 | 1.047 | 1.073 | no |
-| OLO407 | MAGF/MAGI | OLO407A_500 | OL0407s2 | 407 | 500 | 499 | 1.176 | 1.180 | yes |
-| OLO409 | MAGF/MAGI | OLO409C_500 | OL0409s | 448 | 500 | 498 | 1.067 | 1.065 | yes |
-| OLO409 | MAGF/MAGI | OLO409C_600 | OL0409s | 448 | 600 | 599 | 1.022 | 1.024 | yes |
-| OLO409 | MAG2F/MAG1I | OLO409C_600 / OLO409C_500 | OL0409s |  |  |  | 1.046 | 1.049 | yes |
-| OLO410 | MAGF/MAGI | OLO410B_500 | OL0410s | 213 | 500 | 499 | 1.064 | 1.065 | yes |
-| OLO410 | MAGF/MAGI | OLO410B_600 | OL0410s | 213 | 600 | 598 | 1.030 | 1.029 | yes |
-| OLO410 | MAG2F/MAG1I | OLO410B_600 / OLO410B_500 | OL0410s |  |  |  | 1.072 | 1.074 | yes |
+MAGF/MAGI is recalculated as the magnetization at the end of the cooling branch over that of the heating branch at the measured temperature nearest to that of the end of cooling (`ratio`); MAG2F/MAG1I the same with the end of the second cycle and the heating branch of the first. `agrees`: `ratio` within 0.005. Two other ratios for comparison: `ratio_interpolated`, with the heating branch interpolated linearly to the temperature of the end of cooling, and `ratio_start`, over the first measurement of the heating branch.
 
-46 of 55 printed ratios recalculate within 0.005. For GTX0505 the cycle to 500 °C gives the ratio printed for T3 (600 °C) and the cycle to 600 °C the one printed for T1 (500 °C). Table IV prints no ratio for OLO106.
+| row | kind | file | specimen | weight_mg | field_mT | T_pub | T | ratio_pub | ratio | ratio_interpolated | ratio_start | agrees |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| GTX0206 | MAGF/MAGI | GTX206_540 | GTX0206s | 347 | 34.2 | 540 | 539 | 1.081 | 1.081 | 1.081 | 1.047 | yes |
+| GTX0208 | MAGF/MAGI | GTX0208B | GTX0208s | 294 | 35.7 | 500 | 499 | 1.023 | 1.023 | 1.021 | 1.002 | yes |
+| GTX0308 | MAGF/MAGI | GTX0308B_500 | GTX0308s | 433 | 35.2 | 500 | 499 | 0.944 | 0.941 | 0.942 | 0.920 | yes |
+| GTX0308 | MAGF/MAGI | GTX308B_570 | GTX0308s | 433 | 34.8 | 570 | 569 | 1.054 | 1.054 | 1.054 | 0.989 | yes |
+| GTX0308 | MAG2F/MAG1I | GTX308B_570 / GTX0308B_500 | GTX0308s |  |  |  |  | 0.974 | 0.974 | 0.973 | 0.938 | yes |
+| GTX0309 | MAGF/MAGI | GTX309B_500 | GTX0309s | 398 |  | 500 | 500 | 0.963 | 0.963 | 0.963 | 0.940 | yes |
+| GTX0309 | MAGF/MAGI | GTX309B_600 | GTX0309s | 398 |  | 600 | 599 | 1.034 | 1.034 | 1.033 | 1.002 | yes |
+| GTX0309 | MAG2F/MAG1I | GTX309B_600 / GTX309B_500 | GTX0309s |  |  |  |  | 0.964 | 0.964 | 0.964 | 0.941 | yes |
+| GTX0501 | MAGF/MAGI | GTX501B_500 | GTX0501s | 244 |  | 500 | 499 | 0.966 | 0.990 | 0.990 | 0.966 | no |
+| GTX0501 | MAGF/MAGI | GTX501B_600 | GTX0501s | 244 |  | 600 | 598 | 1.035 | 1.045 | 1.042 | 1.009 | no |
+| GTX0501 | MAG2F/MAG1I | GTX501B_600 / GTX501B_500 | GTX0501s |  |  |  |  | 1.015 | 1.015 | 1.017 | 0.983 | yes |
+| GTX0503 | MAGF/MAGI | GTX503B_500 | GTX0503s | 303 | 35.6 | 500 | 499 | 0.985 | 0.985 | 0.985 | 0.957 | yes |
+| GTX0503 | MAGF/MAGI | GTX503B_600 | GTX0503s | 303 | 35.6 | 600 | 598 | 1.076 | 1.076 | 1.075 | 1.037 | yes |
+| GTX0503 | MAG2F/MAG1I | GTX503B_600 / GTX503B_500 | GTX0503s |  |  |  |  | 1.045 | 1.040 | 1.041 | 1.010 | no |
+| GTX0504 | MAGF/MAGI | GTX504B_560 | GTX0504s | 438 | 34.6 | 560 | 559 | 1.004 | 1.004 | 1.004 | 0.971 | yes |
+| GTX0505 | MAGF/MAGI | GTX5-5_500 | GTX0505s | 449 |  | 500 | 499 | 1.051 | 0.983 | 0.985 | 0.960 | no |
+| GTX0505 | MAGF/MAGI | GTX5-5_560 | GTX0505s2 | 389 |  | 560 | 559 | 0.998 | 0.998 | 1.000 | 0.971 | yes |
+| GTX0505 | MAGF/MAGI | GTX5-5_600 | GTX0505s | 449 |  | 600 | 598 | 0.983 | 1.051 | 1.051 | 1.022 | no |
+| GTX0505 | MAG2F/MAG1I | GTX5-5_600 / GTX5-5_500 | GTX0505s |  |  |  |  | 1.003 | 1.027 | 1.028 | 1.003 | no |
+| GTX0506 | MAGF/MAGI | GTX506B_550 | GTX0506s | 412 | 35.4 | 550 | 547 | 1.005 | 1.005 | 1.005 | 0.980 | yes |
+| GTX0604 | MAGF/MAGI | GTX604B_560 | GTX0604s | 468 | 35.3 | 560 | 559 | 1.053 | 1.053 | 1.051 | 1.028 | yes |
+| GTX0604 | MAGF/MAGI | GTX604_560 | GTX0604s | 468 | 35.3 | 560 | 559 | 1.053 | 1.053 | 1.051 | 1.028 | yes |
+| GTX0605 | MAGF/MAGI | GTX0605A_560 | GTX0605s | 450 | 35.4 | 560 | 559 | 1.018 | 1.018 | 1.019 | 0.997 | yes |
+| GTX0705 | MAGF/MAGI | OLO705B_560 | GTX0705s | 358 | 35.5 | 560 | 559 | 1.028 | 1.029 | 1.026 | 0.945 | yes |
+| GTX0802 | MAGF/MAGI | GTX0802_500 | GTX0802s | 358 | 35.5 | 500 | 499 | 1.033 | 1.033 | 1.033 | 1.011 | yes |
+| GTX0803 | MAGF/MAGI | GTX803_250 | GTX0803s | 415 |  | 250 | 251 | 1.008 | 1.008 | 1.015 | 0.988 | yes |
+| GTX0803 | MAGF/MAGI | GTX803_300 | GTX0803s | 415 |  | 300 | 300 | 1.021 | 1.021 | 1.025 | 0.982 | yes |
+| GTX0803 | MAG2F/MAG1I | GTX803_300 / GTX803_250 | GTX0803s |  |  |  |  | 1.010 | 1.010 | 1.017 | 0.990 | yes |
+| GTX1001 | MAGF/MAGI | GTX10-1_450 | GTX1001s | 333 | 34.8 | 450 | 449 | 1.053 | 1.053 | 1.053 | 0.947 | yes |
+| GTX1001 | MAGF/MAGI | GTX10-1_520 | GTX1001s | 333 | 34.7 | 520 | 519 | 1.153 | 1.161 | 1.153 | 1.005 | no |
+| GTX1001 | MAG2F/MAG1I | GTX10-1_520 / GTX10-1_450 | GTX1001s |  |  |  |  | 1.140 | 1.140 | 1.140 | 1.026 | yes |
+| GTX1003 | MAGF/MAGI | GTX1003_500 | GTX1003s | 398 | 37.2 | 500 | 499 | 1.613 | 1.613 | 1.660 | 0.837 | yes |
+| GTX1101 | MAGF/MAGI | GTX1101_500 | GTX1101s | 383 | 34.1 | 500 | 499 | 1.039 | 1.039 | 1.038 | 1.009 | yes |
+| GTX1101 | MAGF/MAGI | GTX1101_600 | GTX1101s | 383 | 35.3 | 600 | 598 | 0.976 | 0.976 | 0.976 | 0.947 | yes |
+| GTX1101 | MAG2F/MAG1I | GTX1101_600 / GTX1101_500 | GTX1101s |  |  |  |  | 1.015 | 1.015 | 1.014 | 0.986 | yes |
+| GTX1102 | MAGF/MAGI | GTX1102_500 | GTX1102s | 429 | 34.6 | 500 | 499 | 0.955 | 0.955 | 0.958 | 0.934 | yes |
+| GTX1102 | MAGF/MAGI | GTX1102_600 | GTX1102s2 | 406 | 35.3 | 600 | 598 | 0.845 | 0.845 | 0.846 | 0.825 | yes |
+| GTX1103 | MAGF/MAGI | GTX1103_560 | GTX1103s | 479 | 33.6 | 560 | 559 | 0.991 | 0.993 | 0.993 | 0.993 | yes |
+| OLO106 | MAGF/MAGI | OLO106_250 | OL0106s | 122 |  | 250 | 251 |  | 1.448 | 1.404 | 0.860 |  |
+| OLO106 | MAGF/MAGI | OLO106_300 | OL0106s2 | 354 |  | 300 | 300 |  | 1.215 | 1.215 | 0.780 |  |
+| OLO201 | MAGF/MAGI | OLO201A_520 | OL0201s | 377 | 33.9 | 520 | 518 | 1.037 | 1.037 | 1.038 | 1.018 | yes |
+| OLO203 | MAGF/MAGI | OLO203B_540 | OL0203s | 524 | 35.7 | 540 | 539 | 0.980 | 0.980 | 0.980 | 0.965 | yes |
+| OLO204 | MAGF/MAGI | OLO204C_560 | OL0204s | 433 | 35.4 | 560 | 559 | 0.987 | 0.987 | 0.988 | 0.970 | yes |
+| OLO209 | MAGF/MAGI | OLO209C_540 | OL0209s | 313 | 36.3 | 540 | 540 | 1.023 | 1.023 | 1.023 | 1.001 | yes |
+| OLO210 | MAGF/MAGI | OLO210B_500 | OL0210s | 431 | 34.8 | 500 | 499 | 0.977 | 0.977 | 0.977 | 0.961 | yes |
+| OLO210 | MAGF/MAGI | OLO210B_600 | OL0210s | 431 | 33.9 | 600 | 598 | 0.977 | 0.977 | 0.977 | 0.962 | yes |
+| OLO210 | MAG2F/MAG1I | OLO210B_600 / OLO210B_500 | OL0210s |  |  |  |  | 0.942 | 0.942 | 0.943 | 0.927 | yes |
+| OLO404 | MAGF/MAGI | OLO404A_450 | OL0404s | 142 | 33.3 | 450 | 449 | 0.978 | 0.978 | 0.979 | 0.945 | yes |
+| OLO404 | MAGF/MAGI | OLO404A_520 | OL0404s2 | 380 | 35.3 | 520 | 519 | 0.994 | 0.994 | 0.994 | 0.974 | yes |
+| OLO407 | MAGF/MAGI | OLO407A_450 | OL0407s | 406 | 33.7 | 450 | 449 | 1.047 | 1.072 | 1.073 | 1.047 | no |
+| OLO407 | MAGF/MAGI | OLO407A_500 | OL0407s2 | 407 | 35.5 | 500 | 499 | 1.176 | 1.179 | 1.180 | 1.145 | yes |
+| OLO409 | MAGF/MAGI | OLO409C_500 | OL0409s | 448 | 35.4 | 500 | 498 | 1.067 | 1.066 | 1.065 | 1.045 | yes |
+| OLO409 | MAGF/MAGI | OLO409C_600 | OL0409s | 448 | 34.7 | 600 | 599 | 1.022 | 1.022 | 1.024 | 1.008 | yes |
+| OLO409 | MAG2F/MAG1I | OLO409C_600 / OLO409C_500 | OL0409s |  |  |  |  | 1.046 | 1.050 | 1.049 | 1.029 | yes |
+| OLO410 | MAGF/MAGI | OLO410B_500 | OL0410s | 213 | 37.4 | 500 | 499 | 1.064 | 1.064 | 1.065 | 1.039 | yes |
+| OLO410 | MAGF/MAGI | OLO410B_600 | OL0410s | 213 | 37.0 | 600 | 598 | 1.030 | 1.030 | 1.029 | 1.003 | yes |
+| OLO410 | MAG2F/MAG1I | OLO410B_600 / OLO410B_500 | OL0410s |  |  |  |  | 1.072 | 1.072 | 1.074 | 1.047 | yes |
+
+47 of 55 printed ratios recalculate within 0.005. To the printed digit, `ratio` gives 41 of them, `ratio_interpolated` 17 and `ratio_start` 3. Of those that `ratio` does not give, `ratio_start` gives GTX0501 at 500 °C (0.966), GTX0505 MAG2F/MAG1I (1.003), OLO407 at 450 °C (1.047). For GTX0505 the cycle to 500 °C gives the ratio printed for T3 (600 °C) and the cycle to 600 °C the one printed for T1 (500 °C). Table IV prints no ratio for OLO106.
 
 
 ## Information that would complete the contribution
@@ -323,5 +333,6 @@ Moments in Am²/kg, fields in mT. `bcr`: zero crossing of the back-field curve (
 - The unit of the moments of the `.TDT` files (entered as A/m) and the volumes of the microcores.
 - Whether the NRM of the LTD specimens was measured after a low-temperature demagnetization.
 - The ninth Thellier-Coe specimen of OL03 (Tables 2 and 4 count 9; Table III and the archive have 8).
+- The field of the 11 thermal-stability cycles whose files do not record it.
 - What the second sets of rock-magnetic curves (`_MAL`) of GTX0208B and GTX0307inf are.
 - The rock-magnetic parameters of each powder, which the paper plots (Fig. 2C) but does not list.

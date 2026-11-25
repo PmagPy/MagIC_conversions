@@ -4,8 +4,8 @@ Each study folder has a `study.json` with two kinds of entries:
 
     entered by hand     what the study is and where it stands: citation, DOIs, formats,
                         tier, status, MagIC contribution, date the authors were contacted
-    "build"             written by the study's convert.py each time it runs (PmagPy version,
-                        rows of each table, validation problems, what recalculates);
+    "build"             written by the study's convert.py each time it runs (PmagPy version and
+                        commit, rows of each table, validation problems, what recalculates);
                         never edited by hand
 
 Run from the repository root to rewrite `studies.md`:
@@ -42,6 +42,29 @@ REQUIRED = ("citation", "year", "title", "journal", "paper_doi", "formats", "tie
 TIERS = ("measurements", "specimens", "samples", "sites", "locations")
 
 
+def pmagpy_commit():
+    """The git commit of the PmagPy that is imported, when it is a git checkout (an editable install).
+
+    A release names its code by its version, but a build from PmagPy master needs the commit as well.
+
+    Returns:
+        str or None: the commit hash, followed by " with uncommitted changes" when tracked files of the
+            checkout differ from it; None when PmagPy is not a git checkout.
+    """
+    import pmagpy  # here, so that building studies.md does not need PmagPy
+
+    folder = Path(pmagpy.__file__).resolve().parents[1]
+
+    def run(*args):
+        return subprocess.run(["git", "-C", str(folder), *args], capture_output=True, text=True)
+
+    head = run("rev-parse", "HEAD")
+    if head.returncode != 0 or run("rev-parse", "--show-toplevel").stdout.strip() != str(folder):
+        return None
+    changed = run("status", "--porcelain", "--untracked-files=no").stdout.strip()
+    return head.stdout.strip() + (" with uncommitted changes" if changed else "")
+
+
 def write_build_summary(study_dir, tables, validation_problems, recalculates):
     """Write the "build" entry of a study's study.json, leaving the other entries as they are.
 
@@ -60,6 +83,7 @@ def write_build_summary(study_dir, tables, validation_problems, recalculates):
     study = json.loads(path.read_text(encoding="utf-8"))
     study["build"] = {
         "pmagpy_version": pmagpy_version.version.replace("pmagpy-", ""),
+        "pmagpy_commit": pmagpy_commit(),
         "rows": {name: int(len(table)) for name, table in tables.items()},
         "validation_problems": int(validation_problems),
         "recalculates": list(recalculates),

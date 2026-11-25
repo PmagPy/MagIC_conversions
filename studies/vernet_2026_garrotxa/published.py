@@ -278,9 +278,10 @@ TABLE_I = pd.DataFrame([
 ], columns=["specimen", "discarded", "treatment", "min", "max", "line", "n", "dec", "inc", "mad"])
 
 # ------------------------------------------------------------------ decisions (see README.md)
-# Samples: a core (the specimen name without its final letter: GTX0202A -> GTX0202, OL01-2B ->
-# OL01-2); for the blocks of GTX08 and GTX10, the block (GTX080102A -> GTX0801), the level at which
-# the site means of Table 2 recalculate.
+# Samples: the piece oriented in the field. A core (the specimen name without its final letter: GTX0202A ->
+# GTX0202, OL01-2B -> OL01-2), and for GTX08 and GTX10 the hand block (GTX080102A -> GTX0801), from which cores
+# were drilled in the laboratory, each with its own orientation (in the .rs3 files), entered on its specimens.
+# The samples are the level at which the site means of Table 2 recalculate.
 # Measurements: the 2G files for the sites measured at Burgos (GTX), the .rs3 files for the OL
 # sites (no 2G files); orientations and the authors' fits from the .rs3 files.
 # Table I against the files (README.md, "Directions"):
@@ -288,6 +289,14 @@ TABLE_I = pd.DataFrame([
 TABLE_I_FILE_DIRECTION = {"GTX0108A": (298.7, 84.0)}
 # GTX0702A: the file holds a fit over 390-520 °C; Table I and the site mean use one over 100-390 °C.
 TABLE_I_REFIT = {"GTX0702A": ("100", "390")}
+# GTX0103A: the 2G file and the .rs3 file list a step at 420 °C first and then one labelled NRM, before the
+# alternating-field steps. The 2G file gives the time of each measurement: 420 °C on 15 Dec 2023 at 10:59,
+# "NRM" at 12:25, 2 mT at 12:28. The "NRM" is therefore a second measurement after heating to 420 °C, with
+# no treatment in between, and is entered as such (temperature in °C, description).
+NRM_AFTER_HEATING = {"GTX0103A": (420, "Labelled NRM in the files, but measured after the 420 °C step (the 2G "
+                                       "file gives 15 Dec 2023, 10:59 for 420 °C and 12:25 for this measurement) "
+                                       "and before the alternating-field steps: a second measurement after heating "
+                                       "to 420 °C.")}
 
 # ------------------------------------------------------------------ paleointensity: text of the paper
 # "The laboratory field applied for the in-field steps was 40 µT"; pTRM checks "starting from 300 ˚C";
@@ -362,7 +371,6 @@ TABLE4_TOTALS = dict(n_std=27, N_std=83, n_ltd=25, N_ltd=46, n=52, N=129, class_
 # 38 mT".
 ROCKMAG_SUFFIX = "r"
 THERMAL_STABILITY_SUFFIX = "s"
-ROCKMAG_SOFTWARE = "RockMag Analyzer 1.1"
 # Table IV: the files of each row, in the order T1, T2, T3 (from the file names, the temperatures in them
 # and the folder). GTX0705 is OLO705B_560.rmp in the folder GTX07, named GTX705B inside. GTX0604 has two
 # files of the same specimen at 560 °C. OLO202 and OLO401 have none ("No data").

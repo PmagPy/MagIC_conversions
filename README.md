@@ -56,7 +56,7 @@ Requirements: Python 3 with numpy, pandas and PmagPy 4.6.0 (released 2026-11-11)
 | `magic_contribution_id` | the MagIC contribution number once uploaded, otherwise `null` |
 | `upload_commit` | the commit of this repository the upload was made from, otherwise `null` |
 | `authors_contacted` | the date the authors were written to, otherwise `null` |
-| `build` | written by `convert.py`: PmagPy version, rows of each table, number of validation problems, and what recalculates |
+| `build` | written by `convert.py`: PmagPy version and, when PmagPy is a git checkout, its commit (marked when it has uncommitted changes), rows of each table, number of validation problems, and what recalculates |
 
 ## Conventions
 

@@ -35,6 +35,7 @@ Requires numpy, pandas and PmagPy master with the branches listed in README.md (
 
 import contextlib
 import io
+import itertools
 import re
 import shutil
 import sys
@@ -46,7 +47,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from pmagpy import convert_2_magic
-from pmagpy import ipmag
 from pmagpy import pmag
 from pmagpy import rockmag
 
@@ -84,8 +84,10 @@ def block_of(specimen):
     return specimen[:7]
 
 
-def mean_unit(specimen):
-    """The unit averaged first in a site mean: the block for GTX08 and GTX10, otherwise the core."""
+def sample_of(specimen):
+    """The sample of a demagnetized specimen, the piece oriented in the field: the hand block for GTX08 and
+    GTX10 (GTX080102A -> GTX0801), otherwise the core (GTX0202A -> GTX0202). It is also the unit averaged
+    first in a site mean."""
     return block_of(specimen) if site_of(specimen) in pub.BLOCK_SITES else core_of(specimen)
 
 
@@ -234,7 +236,6 @@ def compare_2g_rs3(meas_2g, samples_2g, raw):
         repeats = len(labels_2g) - len(set(labels_2g))
         d_angle = max(angle(g["dir_dec"].iloc[k], g["dir_inc"].iloc[k], steps[k]["Dsp"], steps[k]["Isp"])
                       for k in common) if same_steps else np.nan
-        moment = g["magn_moment"].to_numpy() / (g["magn_volume"].to_numpy() if "magn_volume" in g else 1)
         ratio = (np.max(np.abs(g["magn_volume"].to_numpy() / np.array([float(s["M"]) for s in steps]) - 1))
                  if same_steps else np.nan)
         s2 = samples_2g[samples_2g["specimen"] == specimen].iloc[0]
@@ -310,7 +311,7 @@ def refit_stored(spec, meas):
             break
         mode, ang, mad, start = best
         good = ang <= REPRODUCED and abs(mad - stored_mad) <= MAD_TOLERANCE
-        left_out = ""
+        left_out, left_out_measurement = "", ""
         if not good:
             # a step measured twice (the 2G file keeps both): the fit may hold only one of the two
             labels = list(zip(values.round(6), units))
@@ -326,12 +327,13 @@ def refit_stored(spec, meas):
                         left_out = (f"{m['treat_temp'][k] - 273:.0f} °C" if units[k] == "K"
                                     else f"{m['treat_ac_field'][k] * 1e3:g} mT")
                         left_out += " (first)" if labels.index(labels[k]) == k else " (second)"
+                        left_out_measurement = m["measurement"][k]
                         break
                 if left_out:
                     break
         rows.append(dict(row, calculation=mode if good else "not reproduced", first=start, last=b,
                          n=b - start + 1 - bool(left_out), angle=ang, mad=mad, earlier_start=good and start != a,
-                         left_out=left_out,
+                         left_out=left_out, left_out_measurement=left_out_measurement,
                          first_step=f"{m['treat_temp'][start] - 273:.0f} °C" if units[start] == "K" else (
                              f"{m['treat_ac_field'][start] * 1e3:g} mT" if units[start] == "T" else "NRM")))
     return pd.DataFrame(rows)
@@ -377,7 +379,7 @@ def choose_orientation(core, g, spec):
     options = g[["azimuth", "dip"]].round(1).drop_duplicates()
     if len(options) == 1:
         return float(options["azimuth"].iloc[0]), float(options["dip"].iloc[0]), ""
-    fits = spec[(spec["sample"] == core) & (spec["dir_tilt_correction"] == -1)]
+    fits = spec[(spec["specimen"].map(core_of) == core) & (spec["dir_tilt_correction"] == -1)]
     scores = []
     for o in options.itertuples():
         worst = 0.0
@@ -395,20 +397,24 @@ def choose_orientation(core, g, spec):
     return float(azimuth), float(dip), note
 
 
-def rotate_geographic(spec, samp):
-    """Make the geographic fits follow the sample orientations; return the specimens changed."""
-    orient = samp.set_index("sample")[["azimuth", "dip"]]
+def rotate_geographic(spec, orient):
+    """Make the geographic fits follow the core orientations entered; return the specimens changed.
+
+    Args:
+        spec: the specimens table.
+        orient: DataFrame indexed by core, with the azimuth and dip entered.
+    """
     changed = []
     for i in spec.index[spec["dir_tilt_correction"] == 0]:
         r = spec.loc[i]
         sp = spec[(spec["specimen"] == r["specimen"]) & (spec["dir_comp"] == r["dir_comp"]) &
                   (spec["dir_tilt_correction"] == -1)].iloc[0]
-        o = orient.loc[r["sample"]]
+        o = orient.loc[core_of(r["specimen"])]
         dec, inc = geographic(sp["dir_dec"], sp["dir_inc"], o["azimuth"], o["dip"])
         if angle(dec, inc, r["dir_dec"], r["dir_inc"]) > 0.2:
             append(spec, spec.index == i, f"The geographic direction stored in the .rs3 file "
                                           f"({r['dir_dec']:g}/{r['dir_inc']:g}) follows another orientation; the "
-                                          "one entered follows the sample orientation.")
+                                          "one entered follows the orientation of the core.")
             spec.loc[i, ["dir_dec", "dir_inc"]] = round(dec, 1), round(inc, 1)
             changed.append(r["specimen"])
     return changed
@@ -419,7 +425,7 @@ def geographic(dec, inc, azimuth, dip):
     return float(d), float(i)
 
 
-def table_i_refits(meas, samples, spec):
+def table_i_refits(meas, orient, spec):
     """New fits for the specimens whose Table I fit is not stored in the file (published.TABLE_I_REFIT)."""
     rows = []
     for name, (low, high) in pub.TABLE_I_REFIT.items():
@@ -431,13 +437,13 @@ def table_i_refits(meas, samples, spec):
         a, b = limit_rows(values, units, scale(low), scale(high), unit)
         mode = {"OA": "anchored", "O": "anchored", "": "free"}[t["line"]]
         dec, inc, mad = fit_line(block, range(a, b + 1), mode)
-        s = samples[samples["sample"] == core_of(specimen)].iloc[0]
-        gdec, ginc = geographic(dec, inc, s["azimuth"], s["dip"])
+        o = orient.loc[core_of(specimen)]
+        gdec, ginc = geographic(dec, inc, o["azimuth"], o["dip"])
         stored = spec[(spec["specimen"] == specimen) & (spec["dir_tilt_correction"] == 0)].iloc[0]
         code = "DE-BFL-A" if mode == "anchored" else "DE-BFL"
-        base = dict(specimen=specimen, sample=core_of(specimen), dir_comp=f"{stored['dir_comp']} (Table I)",
+        base = dict(specimen=specimen, sample=sample_of(specimen), dir_comp=f"{stored['dir_comp']} (Table I)",
                     dir_n_measurements=b - a + 1, meas_step_min=scale(low), meas_step_max=scale(high),
-                    meas_step_unit=unit, result_quality="g", software_packages="pmagpy convert.py",
+                    meas_step_unit=unit, result_quality="g", software_packages="PmagPy",
                     citations="This study",
                     experiments=stored["experiments"])
         mad_column = "dir_mad_anc" if mode == "anchored" else "dir_mad_free"
@@ -461,7 +467,7 @@ def site_directions(table):
     """The directions that enter each site mean: specimen name, mean unit, dec, inc (geographic)."""
     by_site = defaultdict(list)
     for r in table.itertuples():
-        by_site[site_of(r.specimen)].append((r.specimen, mean_unit(r.specimen), r.dec, r.inc))
+        by_site[site_of(r.specimen)].append((r.specimen, sample_of(r.specimen), r.dec, r.inc))
     return by_site
 
 
@@ -480,7 +486,12 @@ def recalculate_sites(entries_by_site):
     rows = []
     for p in pub.TABLE2_DIRECTIONS.itertuples():
         m = hierarchical_mean(entries_by_site[p.site])
+        # for comparison: the Fisher mean of the specimens, without averaging each sample first
+        flat = fisher([(e[2], e[3]) for e in entries_by_site[p.site]])
+        flat_reproduced = (angle(flat["dec"], flat["inc"], p.dec, p.inc) <= REPRODUCED
+                           and abs(flat["alpha95"] - p.a95) <= 0.051 and len(entries_by_site[p.site]) == p.n)
         rows.append(dict(site=p.site, dec_pub=p.dec, inc_pub=p.inc, a95_pub=p.a95, n_pub=p.n,
+                         specimen_mean_reproduced=flat_reproduced,
                          dec=m["dec"], inc=m["inc"], a95=m["alpha95"], k=m["k"], n=m["n_units"],
                          n_specimens=m["n_specimens"], angle=angle(m["dec"], m["inc"], p.dec, p.inc),
                          units=m["units"], specimens=[e[0] for e in entries_by_site[p.site]]))
@@ -488,6 +499,36 @@ def recalculate_sites(entries_by_site):
     out["reproduced"] = (out["angle"] <= REPRODUCED) & ((out["a95"] - out["a95_pub"]).abs() <= 0.051) & (
         out["n"] == out["n_pub"])
     return out
+
+
+def closest_subsets(entries, published):
+    """Every subset of the specimens of a site, as a hierarchical mean, against the published site mean.
+
+    Args:
+        entries: (specimen, sample, dec, inc) of each specimen of the site (site_directions).
+        published: the row of Table 2 (dec, inc, a95, n).
+
+    Returns:
+        dict: "reproducing", the number of subsets that give the published mean (direction within
+        REPRODUCED, alpha95 within 0.05 degrees, the same n); "closest" and "same_n", the subset closest in
+        direction, of any n and of the published n (dec, inc, alpha95, n, angle, specimens).
+    """
+    results = []
+    for size in range(2, len(entries) + 1):
+        for subset in itertools.combinations(entries, size):
+            m = hierarchical_mean(subset)
+            if m["n_units"] < 2:
+                continue
+            results.append(dict(dec=m["dec"], inc=m["inc"], alpha95=m["alpha95"], n=m["n_units"],
+                                angle=angle(m["dec"], m["inc"], published["dec"], published["inc"]),
+                                specimens=[e[0] for e in subset]))
+    results = pd.DataFrame(results)
+    reproducing = ((results["angle"] <= REPRODUCED) & ((results["alpha95"] - published["a95"]).abs() <= 0.051)
+                   & (results["n"] == published["n"]))
+    same_n = results[results["n"] == published["n"]]
+    return dict(reproducing=int(reproducing.sum()), subsets=len(results),
+                closest=results.loc[results["angle"].idxmin()].to_dict(),
+                same_n=same_n.loc[same_n["angle"].idxmin()].to_dict())
 
 
 def recalculate_vgps():
@@ -506,7 +547,7 @@ def recalculate_vgps():
 #
 # 142 ThellierTool files (laboratory field 40 μT), one per specimen and experiment: 82 of standard
 # Thellier-Coe experiments and 46 with a low-temperature demagnetization after each heating step
-# (LTD_*.TDT), and 14 corrected copies of 13 of them (*_C.TDT, *_CC.TDT), the same file with some
+# (LTD_*.TDT), and 14 corrected copies of 12 of them (*_C.TDT, *_CC.TDT), the same file with some
 # steps deleted. Table III gives one row for each of the 128 specimens and names the corrected copy
 # where it is the one interpreted (GTX0308B_c). The files are converted with convert_2_magic.tdt;
 # each specimen enters once, from its original file, and the measurements that the interpreted copy
@@ -602,14 +643,31 @@ def thellier_sample(original, direction_samples):
     """The sample of a Thellier specimen, from its file name (LTD_ removed).
 
     OL0102A -> OL01-2 (the core named OL01-2 in the demagnetization files); GTX0206B1 -> GTX0206;
-    GTX080101 -> GTX080101, a core of the hand block GTX0801; LTD_GTX08021 -> GTX0802 and
-    GTX10011 -> GTX1001, hand blocks; GTX11011 -> GTX1101, an unoriented hand block.
+    GTX080101 -> GTX0801 and LTD_GTX08021 -> GTX0802 (GTX08 and GTX10: the oriented hand block, the
+    sample of the demagnetized specimens as well); GTX11011 -> GTX1101, an unoriented hand block.
     """
     name = original.replace("LTD_", "")
     m = re.fullmatch(r"(OL\d\d)(\d\d)[A-Z]+", name)
     if m:
         return f"{m.group(1)}-{int(m.group(2))}"
     return name[:9] if name[:9] in direction_samples else name[:7]
+
+
+def nrm_ratios(thellier_meas, demag_meas):
+    """The NRM of each Thellier-Coe microcore (.TDT, read as A/m) over the median NRM of the demagnetized
+    specimens of the same core (2G and .rs3 files, A/m), where the name of the microcore gives the core
+    (GTX0206B1 and LTD_GTX02061 -> GTX0206, OL0102A -> OL01-2, GTX080101 -> GTX080101)."""
+    nrm = demag_meas[demag_meas["method_codes"].str.startswith("LT-NO")]
+    by_core = nrm.groupby(nrm["specimen"].map(core_of))["magn_volume"].apply(lambda v: v.astype(float).median())
+    rows = []
+    for specimen, g in thellier_meas[thellier_meas["method_codes"].str.startswith("LT-NO")].groupby("specimen"):
+        name = specimen[:-len(pub.THELLIER_SUFFIX)].replace("LTD_", "")
+        m = re.fullmatch(r"(OL\d\d)(\d\d)[A-Z]+", name)
+        core = f"{m.group(1)}-{int(m.group(2))}" if m else (name[:9] if name[:9] in by_core.index else name[:7])
+        if core in by_core.index:
+            rows.append(dict(specimen=specimen, core=core, ltd=specimen.startswith("LTD_"),
+                             ratio=float(g["magn_volume"].iloc[0]) / by_core[core]))
+    return pd.DataFrame(rows)
 
 
 def mark_ltd(meas):
@@ -701,15 +759,18 @@ def thellier_specimen_rows(meas, files):
                        int_abs=f"{r.b * 1e-6:.4e}", int_abs_sigma=f"{r.db * 1e-6:.3e}",
                        int_treat_dc_field=f"{pub.THELLIER_LAB_FIELD:.1e}", int_n_measurements=int(r.n),
                        int_b_beta=r.beta, int_f=r.f, int_q=r.q, int_dck=r.dck, int_mad_anc=r.mad,
-                       int_alpha=r.alpha95, meas_step_min=t_min + 273, meas_step_max=t_max + 273,
-                       meas_step_unit="K", software_packages=pub.THELLIER_SOFTWARE)
-            text += f" Class {cls} (Table III)" + (f": rejected, {r.observations}." if cls == "R" else ".")
+                       # a range from 20 °C starts at the NRM, entered at 273 K like every NRM
+                       int_alpha=r.alpha95, meas_step_min=273 if t_min <= 50 else t_min + 273,
+                       meas_step_max=t_max + 273, meas_step_unit="K", software_packages=pub.THELLIER_SOFTWARE)
+            text += f" Class {cls} (Table III)" + (f": rejected, {r.observations}." if cls == "R" else
+                                                   f"; observation: {r.observations}." if r.observations else ".")
             if (r.ltd, r.specimen) in pub.TABLE_III_RANGE:
                 text += (f" Table III prints the range {r.t_min:.0f}-{r.t_max:.0f} °C, which holds one step fewer "
                          f"than its N = {int(r.n)}; {t_min:.0f}-{t_max:.0f} °C gives N, B, β, f and q of the table "
                          "and is entered (inferred).")
             if t_min <= 50:
-                text += " The range starts at the NRM, which is one of the N points."
+                text += (f" The range starts at the NRM (Table III: {t_min:.0f} °C), which is one of the N points; its "
+                         "lower limit is entered as that of the NRM.")
         else:
             text += f" No determination: rejected in Table III ({r.observations})."
         if r.observations.startswith("(*)"):
@@ -775,7 +836,7 @@ def convert_vftb_file(path, specimen, stem):
 
 def piece_sample(name, known_samples):
     """The sample of a rock-magnetic or thermal-stability piece: OL0102A, OL0106 -> OL01-2, OL01-6;
-    GTX080103inf -> GTX080103 (a core); GTX0208B_MAL, GTX0102inf -> GTX0208, GTX0102."""
+    GTX080103inf -> GTX0801 (the hand block of core GTX080103); GTX0208B_MAL, GTX0102inf -> GTX0208, GTX0102."""
     m = re.fullmatch(r"(OL\d\d)(\d\d)[A-Z]*", name)
     if m:
         return f"{m.group(1)}-{int(m.group(2))}"
@@ -798,7 +859,8 @@ def build_rockmag(folder, known_samples):
         if len(weights) != 1:
             raise RuntimeError(f"{stem}: the files give different weights")
         sample = piece_sample(stem.replace("_MAL", ""), known_samples)
-        text = (f"Powder of {sample}, measured on a variable field translation balance at Burgos: "
+        text = (f"Powder of sample {sample} ({stem.replace('_MAL', '')} in the files), measured on a variable field "
+                f"translation balance at Burgos: "
                 f"{'; '.join(curves)} (files {stem}.irm, .coe, .hys, .rmp). The paper gives no results per sample.")
         if stem.endswith("_MAL"):
             text += (f" A second set of curves, with the suffix _MAL, of the core of {stem[:-4]}; the paper does "
@@ -816,8 +878,9 @@ def rockmag_parameters(meas):
     Bcr is the zero crossing of the back-field curve (rockmag.process_backfield_data). Ms, Mr and Bc
     are those of rockmag.process_hyst_loop, and those read from the measured branches (_branch) after
     removing the high-field slope fitted above 60 percent of the peak field: Ms the intercept, Mr the
-    magnetization at zero field and Bc the zero crossing, by linear interpolation. The difference
-    between the two is the subject of PmagPy issue #1048.
+    magnetization at zero field and Bc the zero crossing, by linear interpolation. The two differ
+    because process_hyst_loop resamples a loop on an even grid of its median field step, too coarse
+    for these loops near zero field (report.md).
     """
     rows = []
     for specimen, g in meas.groupby("specimen"):
@@ -863,14 +926,32 @@ def read_table_iv():
 
 def magnetization_ratio(final, initial):
     """MAGF/MAGI of Table IV: the magnetization at the end of the cooling branch of one cycle over that of
-    the heating branch of a cycle (the same, or the first) at the same temperature, interpolated linearly."""
+    the heating branch of a cycle (the same, or the first) at the measured temperature nearest to that of
+    the end of cooling. Taking the nearest measurement, rather than interpolating between the two around
+    it, gives the printed value to its last digit for most rows (report.md)."""
     cooling = final[final["method_codes"].str.contains("LP-MC")]
     heating = initial[initial["method_codes"].str.contains("LP-MW")]
     t_end, m_end = float(cooling["meas_temp"].iloc[-1]), float(cooling["magn_mass"].iloc[-1])
     t, m = heating["meas_temp"].astype(float).values, heating["magn_mass"].astype(float).values
-    k = int(np.argmax(t >= t_end))
-    m_start = m[0] if k == 0 else m[k - 1] + (m[k] - m[k - 1]) * (t_end - t[k - 1]) / (t[k] - t[k - 1])
-    return m_end / m_start
+    return m_end / m[int(np.argmin(np.abs(t - t_end)))]
+
+
+def magnetization_ratio_interpolated(final, initial):
+    """As magnetization_ratio, with the heating branch interpolated linearly to the temperature of the end
+    of cooling (for the report)."""
+    cooling = final[final["method_codes"].str.contains("LP-MC")]
+    heating = initial[initial["method_codes"].str.contains("LP-MW")]
+    t_end, m_end = float(cooling["meas_temp"].iloc[-1]), float(cooling["magn_mass"].iloc[-1])
+    t, m = heating["meas_temp"].astype(float).values, heating["magn_mass"].astype(float).values
+    return m_end / np.interp(t_end, t, m)
+
+
+def magnetization_ratio_start(final, initial):
+    """The magnetization at the end of the cooling branch over the first measurement of the heating branch,
+    whatever its temperature (for the report)."""
+    cooling = final[final["method_codes"].str.contains("LP-MC")]
+    heating = initial[initial["method_codes"].str.contains("LP-MW")]
+    return float(cooling["magn_mass"].iloc[-1]) / float(heating["magn_mass"].iloc[0])
 
 
 def build_thermal_stability(folder, known_samples):
@@ -887,7 +968,10 @@ def build_thermal_stability(folder, known_samples):
         runs = []
         for k, stem in enumerate(pub.TABLE_IV_FILES[r.specimen]):
             meas, weight = convert_vftb_file(paths[stem], name, f"ts_{stem}")
-            runs.append(dict(stem=stem, meas=meas, weight=weight, peak=float(meas["meas_temp"].max()) - 273))
+            # the field of the cycle in mT; NaN where the file does not record it (meas_field_dc empty)
+            field = pd.to_numeric(meas["meas_field_dc"], errors="coerce")
+            runs.append(dict(stem=stem, meas=meas, weight=weight, peak=float(meas["meas_temp"].max()) - 273,
+                             field=float(field.median()) * 1e3 if field.notna().any() else np.nan))
         pieces = list(OrderedDict.fromkeys(run["weight"] for run in runs))
         for run in runs:
             piece = pieces.index(run["weight"])
@@ -903,16 +987,36 @@ def build_thermal_stability(folder, known_samples):
             t_pub = temperatures[min(k, len(temperatures) - 1)] if temperatures else np.nan
             p = published[min(k, len(temperatures) - 1)] if temperatures else np.nan
             checks.append(dict(row=r.specimen, file=run["stem"], specimen=run["specimen"], weight_mg=run["weight"] * 1e6,
-                               T_pub=t_pub, T=run["peak"], ratio_pub=p,
-                               ratio=magnetization_ratio(run["meas"], run["meas"])))
-        if len(runs) > 1 and pd.notna(r.mag2f_mag1i):
-            checks.append(dict(row=r.specimen, file=f"{runs[1]['stem']} / {runs[0]['stem']}", specimen=runs[0]["specimen"],
-                               weight_mg=np.nan, T_pub=np.nan, T=np.nan, ratio_pub=r.mag2f_mag1i,
-                               ratio=magnetization_ratio(runs[1]["meas"], runs[0]["meas"]), kind="MAG2F/MAG1I"))
+                               field_mT=run["field"], T_pub=t_pub, T=run["peak"], ratio_pub=p,
+                               ratio=magnetization_ratio(run["meas"], run["meas"]),
+                               ratio_interpolated=magnetization_ratio_interpolated(run["meas"], run["meas"]),
+                               ratio_start=magnetization_ratio_start(run["meas"], run["meas"])))
+        # MAG2F/MAG1I: the first two cycles of one piece ("only when the same specimen was analyzed for both")
+        same = [run for run in runs if run["weight"] == runs[0]["weight"]]
+        if pd.notna(r.mag2f_mag1i):
+            if len(same) < 2:
+                raise RuntimeError(f"Table IV {r.specimen}: MAG2F/MAG1I is printed, but no piece has two cycles")
+            first, second = same[0], same[1]
+            checks.append(dict(row=r.specimen, file=f"{second['stem']} / {first['stem']}", specimen=first["specimen"],
+                               weight_mg=np.nan, field_mT=np.nan, T_pub=np.nan, T=np.nan, ratio_pub=r.mag2f_mag1i,
+                               ratio=magnetization_ratio(second["meas"], first["meas"]),
+                               ratio_interpolated=magnetization_ratio_interpolated(second["meas"], first["meas"]),
+                               ratio_start=magnetization_ratio_start(second["meas"], first["meas"]),
+                               kind="MAG2F/MAG1I"))
         for specimen in OrderedDict.fromkeys(run["specimen"] for run in runs):
             own = [run for run in runs if run["specimen"] == specimen]
-            text = (f"Thermal-stability cycles of Table IV ({r.specimen}): magnetization against temperature in a "
-                    f"field of about 35 mT (the files; the text gives 38 mT), from a 1 T IRM, heated to "
+            fields = [run["field"] for run in own if pd.notna(run["field"])]
+            if len(fields) == len(own):
+                field_text = (f"in a field of {min(fields):.0f} mT" if round(min(fields)) == round(max(fields))
+                              else f"in a field of {min(fields):.0f} to {max(fields):.0f} mT")
+                field_text += " (median of the files; the text gives 38 mT)"
+            elif not fields:
+                field_text = "in a field that the files do not record (the text gives 38 mT)"
+            else:
+                field_text = (f"in a field of {min(fields):.0f} to {max(fields):.0f} mT where the files record it "
+                              "(the text gives 38 mT)")
+            text = (f"Thermal-stability cycles of Table IV ({r.specimen}): magnetization against temperature "
+                    f"{field_text}, from a 1 T IRM, heated to "
                     + ", ".join(f"{run['peak']:.0f}" for run in own) + " °C and cooled (files "
                     + ", ".join(f"{run['stem']}.rmp" for run in own) + ").")
             values = [f"T{k + 1} {t:.0f} °C, phases {ph or '-'}, MAG{k + 1}F/MAG{k + 1}I {m:.3f}" for k, (t, ph, m) in
@@ -969,10 +1073,18 @@ def main():
     meas_rs3_ol = meas_rs3[~meas_rs3["specimen"].isin(gtx)]
     meas = pd.concat([meas_2g, meas_rs3_ol], ignore_index=True)
     meas["citations"] = "This study"
+    # a measurement labelled NRM in the files but made after a heating step (published.NRM_AFTER_HEATING)
+    for specimen, (temperature, note) in pub.NRM_AFTER_HEATING.items():
+        nrm = meas.index[(meas["specimen"] == specimen) & meas["method_codes"].str.startswith("LT-NO")]
+        if len(nrm) != 1 or nrm[0] == meas.index[meas["specimen"] == specimen][0]:
+            raise RuntimeError(f"{specimen}: expected one NRM row, after the first measurement")
+        meas.loc[nrm, "method_codes"] = meas.loc[nrm, "method_codes"].str.replace("LT-NO", "LT-T-Z")
+        meas.loc[nrm, "treat_temp"] = temperature + 273.0
+        meas.loc[nrm, "description"] = note
 
     # ---- specimens: the stored fits
     spec = rs3["specimens"].copy()
-    spec["sample"] = spec["specimen"].map(core_of)
+    spec["sample"] = spec["specimen"].map(sample_of)
     # the converter writes its notes as clauses joined by "; ": each becomes a sentence
     spec["description"] = spec["description"].fillna("").map(
         lambda d: " ".join(c[0].upper() + c[1:] + ("" if c.endswith((".", "?", "!")) else ".") for c in d.split("; ") if c))
@@ -995,44 +1107,72 @@ def main():
                     "entered, those of the 2G file.", regex=True)
         if r.earlier_start:
             append(spec, rows, f"The stored direction and MAD are those of a fit that starts at the {r.first_step} "
-                               f"step, before the stated first limit; LP-DIR-T is added and meas_step_min is 0 T, the "
-                               f"field of that step (recalculated over {int(r.n)} measurements).")
+                               f"step, before the stated first limit (recalculated over {int(r.n)} measurements). The "
+                               "fit is entered with the thermal and the alternating-field protocols, and its lower "
+                               "limit as 0 mT, the alternating field of the heating step.")
             spec.loc[rows, "method_codes"] = spec.loc[rows, "method_codes"].str.replace(
                 "LP-DIR-AF", "LP-DIR-T:LP-DIR-AF")
             spec.loc[rows, "meas_step_min"] = 0.0
         if r.left_out:
-            append(spec, rows, f"The 2G file holds two measurements at {r.left_out.split(' (')[0]}; the stored line is "
-                               f"reproduced without the {r.left_out.split('(')[1][:-1]} of them ({int(r.n)} "
-                               "measurements).")
+            step, which = r.left_out.split(" (")[0], r.left_out.split("(")[1][:-1]
+            append(spec, rows, f"The 2G file holds two measurements at {step}; the stored line is reproduced without "
+                               f"the {which} of them ({int(r.n)} measurements), which the .rs3 file does not hold "
+                               "and which is flagged bad.")
+            left = meas["measurement"] == r.left_out_measurement
+            meas.loc[left, "quality"] = "b"
+            meas.loc[left, "description"] = (f"The {which} of two measurements at {step} in the 2G file; the .rs3 "
+                                             "file and the stored fit of the authors hold only the other.")
         if r.calculation == "not reproduced":
             append(spec, rows, f"The stored direction is not reproduced from the archived measurements between its "
                                f"limits (closest {r.angle:.1f}° away).")
-    # samples: the orientation in the .rs3 files, which Table I follows
+    # the orientation of each core: the one in its .rs3 files, which Table I follows
     samp_rs3 = rs3["samples"].copy()
     samp_rs3["core"] = samp_rs3["sample"].map(core_of)
-    samples = []
+    orient = []
     for core, g in samp_rs3.groupby("core", sort=False):
         azimuth, dip, chosen_note = choose_orientation(core, g, spec)
-        site = site_of(core)
+        orient.append(dict(core=core, azimuth=azimuth, dip=dip, note=chosen_note))
+    orient = pd.DataFrame(orient).set_index("core")
+    head_2g = files_check.assign(core=files_check["specimen"].map(core_of)).groupby("core")[["azimuth_2g", "dip_2g"]]
+    # samples: the pieces oriented in the field, cores, or for GTX08 and GTX10 hand blocks from which cores were
+    # drilled in the laboratory, each core with its own orientation, which is entered on its specimens
+    samples = []
+    for sample, cores in orient.groupby(orient.index.map(lambda c: sample_of(c + "A")), sort=False):
+        site = site_of(sample)
         t1 = site_info(site)
-        row = OrderedDict(sample=core, site=site, azimuth=azimuth, dip=dip,
-                          method_codes=pub.ORIENTATION_BLOCKS if site in pub.BLOCK_SITES else pub.ORIENTATION_CORES,
+        row = OrderedDict(sample=sample, site=site, method_codes=pub.ORIENTATION_CORES,
                           lat=t1["lat"], lon=t1["lon"], citations="This study", description="")
         if site in pub.BLOCK_SITES:
-            row["description"] = (f"A core drilled in the laboratory from the oriented hand block {block_of(core + 'A')}; "
-                                  "the orientation is that of the core in the .rs3 file.")
-        diff = files_check[files_check["specimen"].map(core_of) == core]
-        if not diff.empty:
-            d = diff.iloc[0]
-            if abs(d.azimuth_2g - row["azimuth"]) > 0.5 or abs(d.dip_2g - row["dip"]) > 0.5:
-                row["description"] = (row["description"] + " " if row["description"] else "") + (
-                    f"The 2G file gives another orientation (azimuth {d.azimuth_2g:g}, dip {d.dip_2g:g} as read by "
-                    f"PmagPy); the .rs3 file, which the directions of Table I follow, is used.")
-        if chosen_note:
-            row["description"] = (row["description"] + " " if row["description"] else "") + chosen_note
+            block_2g = head_2g.first().loc[cores.index].drop_duplicates()
+            if len(block_2g) != 1:
+                raise RuntimeError(f"the 2G files of the cores of block {sample} give different orientations")
+            row.update(method_codes=pub.ORIENTATION_BLOCKS, description=(
+                f"Hand block oriented in the field with a magnetic compass (text). The cores {', '.join(cores.index)} "
+                "were drilled from it in the laboratory, each with its own orientation (the .rs3 files), which is "
+                "entered on its specimens. The 2G files of the cores all give one orientation, that of the block "
+                f"(read by PmagPy as azimuth {block_2g['azimuth_2g'].iloc[0]:g}, dip {block_2g['dip_2g'].iloc[0]:g}), "
+                "but neither the files nor the paper say how the orientations of the cores were derived from it, so "
+                "the block has no orientation entered."))
+        else:
+            o = cores.iloc[0]
+            row.update(azimuth=o["azimuth"], dip=o["dip"])
+            if sample in head_2g.groups:
+                h = head_2g.first().loc[sample]
+                if abs(h["azimuth_2g"] - o["azimuth"]) > 0.5 or abs(h["dip_2g"] - o["dip"]) > 0.5:
+                    raise RuntimeError(f"core {sample}: the 2G and .rs3 files give different orientations")
+            if o["note"]:
+                row["description"] = o["note"]
         samples.append(row)
     samp = geology(pd.DataFrame(samples))
-    regeo_notes = rotate_geographic(spec, samp)
+    # the specimens of the blocks: the orientation of their core
+    in_blocks = spec["specimen"].map(site_of).isin(pub.BLOCK_SITES)
+    spec.loc[in_blocks, "azimuth"] = spec.loc[in_blocks, "specimen"].map(lambda s: orient.loc[core_of(s), "azimuth"])
+    spec.loc[in_blocks, "dip"] = spec.loc[in_blocks, "specimen"].map(lambda s: orient.loc[core_of(s), "dip"])
+    for specimen in spec.loc[in_blocks, "specimen"].unique():
+        append(spec, spec["specimen"] == specimen,
+               f"Cut from core {core_of(specimen)}, drilled in the laboratory from the oriented hand block "
+               f"{block_of(specimen)}; the azimuth and dip are those of the core (.rs3 file).")
+    regeo_notes = rotate_geographic(spec, orient)
     geo = spec[spec["dir_tilt_correction"] == 0]
     chrm = chrm_rows(geo)
     table_i_check = compare_table_i(geo, chrm, refits)
@@ -1067,7 +1207,7 @@ def main():
     spec["citations"] = "This study"
 
     # the fits of Table I that are not stored in a file
-    new_fits = table_i_refits(meas, samp, spec)
+    new_fits = table_i_refits(meas, orient, spec)
     spec = pd.concat([spec, geology(new_fits.drop(columns=["table_i"], errors="ignore"))], ignore_index=True)
     spec = spec.sort_values(["specimen", "dir_tilt_correction"], kind="stable").reset_index(drop=True)
 
@@ -1106,6 +1246,7 @@ def main():
     thellier_meas = mark_ltd(thellier_meas)
     thellier_meas["citations"] = "This study"
     lab_angle = lab_field_check(thellier_meas)
+    nrm_check = nrm_ratios(thellier_meas, meas)  # meas: the demagnetization files only, so far
     thellier_check = recalculate_thellier(thellier_meas, pi_files)
     thellier_spec = thellier_specimen_rows(thellier_meas, pi_files)
     thellier_spec["sample"] = [thellier_sample(s, set(samp["sample"])) for s in pi_files["original"]]
@@ -1145,15 +1286,18 @@ def main():
     entries = []
     for c in chrm.itertuples():
         t = pub.TABLE_I[pub.TABLE_I["specimen"] == c.table_i].iloc[0]
-        if t["discarded"]:
-            continue
         if c.table_i in pub.TABLE_I_REFIT:
             nf = new_fits[(new_fits["table_i"] == c.table_i) & (new_fits["dir_tilt_correction"] == 0)].iloc[0]
-            entries.append(dict(specimen=c.specimen, dec=nf["dir_dec"], inc=nf["dir_inc"]))
+            entries.append(dict(specimen=c.specimen, dec=nf["dir_dec"], inc=nf["dir_inc"], discarded=t["discarded"]))
         else:
             f = geo.loc[c.index]
-            entries.append(dict(specimen=c.specimen, dec=f["dir_dec"], inc=f["dir_inc"]))
-    site_check = recalculate_sites(site_directions(pd.DataFrame(entries)))
+            entries.append(dict(specimen=c.specimen, dec=f["dir_dec"], inc=f["dir_inc"], discarded=t["discarded"]))
+    entries = pd.DataFrame(entries)
+    site_check = recalculate_sites(site_directions(entries[~entries["discarded"]]))
+    # the site means that do not recalculate: every subset of the specimens of the site, discarded or not
+    subset_check = {r.site: closest_subsets(site_directions(entries)[r.site],
+                                            pub.TABLE2_DIRECTIONS.set_index("site").loc[r.site])
+                    for r in site_check[~site_check["reproduced"]].itertuples()}
     vgp_check = recalculate_vgps()
 
     sites = []
@@ -1173,15 +1317,20 @@ def main():
                        dir_n_specimens=c.n_specimens, dir_tilt_correction=0,
                        vgp_lat=t3["vgp_lat"], vgp_lon=t3["vgp_lon"], vgp_dp=t3["dp"], vgp_dm=t3["dm"],
                        result_quality="g", method_codes=join(["DE-BFL", "DE-FM", "DE-VGP"] + lp + ["DA-DIR-GEO"]),
-                       specimens=join(c.specimens), samples=join(sorted({core_of(s) for s in c.specimens})))
+                       specimens=join(c.specimens), samples=join(sorted({sample_of(s) for s in c.specimens})))
             if c.reproduced:
                 row["dir_k"] = round(c.k, 1)
             text = (f" Direction (Table 2): hierarchical mean of {int(p.n)} {level}, each the Fisher mean of its "
                     f"specimens; ΔD {p.dD}°, ΔI {p.dI}° (97.5%, Demarest, 1983); n/N {int(p.n)}/{int(p.N)}.")
-            text += (" Recalculated from the specimen fits to the printed precision; dir_k is recalculated."
+            text += (" Recalculated from the specimen fits to the printed precision; the precision parameter k, "
+                     "which the paper does not give, is from the recalculation."
                      if c.reproduced else
-                     f" Not reproduced from the specimen fits: the closest recalculation is {c.dec:.1f}/{c.inc:.1f}, "
-                     f"α95 {c.a95:.1f}° ({c.angle:.1f}° away).")
+                     f" Not reproduced from the specimen fits: those that Table I does not discard give "
+                     f"{c.dec:.1f}/{c.inc:.1f}, α95 {c.a95:.1f}°, n = {c.n} ({c.angle:.1f}° away), and no subset of "
+                     f"the specimens of the site gives the printed mean (the closest with n = {int(p.n)}: "
+                     f"{subset_check[t1.site]['same_n']['dec']:.1f}/{subset_check[t1.site]['same_n']['inc']:.1f}, "
+                     f"α95 {subset_check[t1.site]['same_n']['alpha95']:.1f}°, "
+                     f"{subset_check[t1.site]['same_n']['angle']:.1f}° away).")
             text += " VGP from Table 3."
             row["description"] += text
         elif t1.site == "GTX06":
@@ -1192,7 +1341,7 @@ def main():
                                    "(text).")
         elif t1.site in pub.UNORIENTED_SITES:
             row["description"] += " Unoriented hand blocks, for paleointensity and rock magnetism only (text)."
-        row["description"] += f" Age: {pub.DATING[t1.dating][1]}; the ± of Table 1 is entered as age_low and age_high."
+        row["description"] += f" Age: {pub.DATING[t1.dating][1]}; the ± of Table 1 is entered as the lower and upper bounds of the age."
         sites.append(row)
     sites = geology(pd.DataFrame(sites))
     if (sites["method_codes"] == "").any():
@@ -1223,7 +1372,7 @@ def main():
                 f"{int(t4.class_a)}/{int(t4.class_b)}/{int(t4.class_c)}. VADM from Table 3.")
         if abs(check["B_all"] - p.B) > 0.051 or (pd.notna(p.dB) and abs(check["dB_all"] - p.dB) > 0.051):
             text += (f" From the determinations of Table III: {check['B_all']:.2f} ± {check['dB_all']:.2f} μT.")
-        text += f" Age: {pub.DATING[t1['dating']][1]}; the ± of Table 1 is entered as age_low and age_high."
+        text += f" Age: {pub.DATING[t1['dating']][1]}; the ± of Table 1 is entered as the lower and upper bounds of the age."
         intensity_rows.append(OrderedDict(
             site=p.site, location=pub.LOCATION, result_type="i", result_quality="g", citations="This study",
             lat=t1["lat"], lon=t1["lon"], age=t1["age"], age_low=t1["age"] - t1["age_pm"],
@@ -1315,7 +1464,7 @@ def recalculated(v):
 
 def write_report(v):
     """report.md: contents, checks against the paper, and what is missing."""
-    spec, meas, refits, chrm = v["spec"], v["meas"], v["refits"], v["chrm"]
+    spec, meas, refits = v["spec"], v["meas"], v["refits"]
     files_check, table_i_check, site_check, vgp_check = (v["files_check"], v["table_i_check"], v["site_check"],
                                                          v["vgp_check"])
     rep = ["# La Garrotxa: build report\n",
@@ -1361,16 +1510,18 @@ def write_report(v):
     rep.append(md_table(other.assign(extra=other["extra"].map(
         lambda e: ", ".join(f"{x[0] - 273:.0f} °C" if x[1] == "K" else f"{x[0] * 1e3:g} mT" for x in e))),
         ["specimen", "steps_2g", "steps_rs3", "repeats", "extra"]))
-    orient = v["samp"].set_index("sample")[["azimuth", "dip"]]
-    entered = files_check["specimen"].map(core_of).map(lambda c: tuple(orient.loc[c]))
+    orient = v["orient"]
+    entered = files_check["specimen"].map(core_of).map(lambda c: tuple(orient.loc[c, ["azimuth", "dip"]]))
     moved = files_check[[abs(a - e[0]) > 0.5 or abs(d - e[1]) > 0.5
                          for a, d, e in zip(files_check["azimuth_2g"], files_check["dip_2g"], entered)]]
-    rep.append(f"\nThe orientation in the 2G header differs from the one entered for {len(moved)} specimens "
+    rep.append(f"\nThe orientation in the 2G header differs from that of the `.rs3` files for {len(moved)} specimens "
                f"({', '.join(moved['specimen'])}): all the specimens of GTX08 and GTX10, cores drilled in the "
-               "laboratory from oriented blocks, whose `.rs3` files hold the orientation of each core. The "
-               "directions of Table I follow the `.rs3` files. For core GTX0401 the `.rs3` files of its two "
-               "specimens differ, and the orientation entered is the one with which Table I is reproduced, also "
-               "that of the 2G files.\n")
+               "laboratory from hand blocks oriented in the field. The 2G header gives one orientation for all the "
+               "cores of a block, and the `.rs3` files the orientation of each core, which the directions of Table I "
+               "follow. The block is the sample, with no orientation entered, and the orientation of each core is "
+               "entered on its specimens (`azimuth`, `dip` of the specimens table). For core GTX0401 the `.rs3` files "
+               "of its two specimens differ, and the orientation entered is the one with which Table I is "
+               "reproduced, also that of the 2G files.\n")
     kinds = pd.Series([re.sub(r"\bfits? [\w, ]+? (is|are|has) ", r"fit \1 ", re.sub(r"^-W- [^:]+: (\d+ )?", "", w))
                        for w in v["rs3_warnings"]]).value_counts()
     rep.append(f"Warnings of the converters: {len(v['rs3_warnings'])} from `rs3` ("
@@ -1379,7 +1530,7 @@ def write_report(v):
     rep.append("## Stored fits recalculated\n")
     counts = refits["calculation"].value_counts()
     rep.append(f"{len(refits)} stored line fits, recalculated from the measurements entered between their stated "
-               f"limits: " + ", ".join(f"{n} as a {k} line" if k in ("free", "anchored") else
+               f"limits: " + ", ".join(f"{n} as {'an' if k == 'anchored' else 'a'} {k} line" if k in ("free", "anchored") else
                                        (f"{n} with the origin added as a point" if k == "origin" else f"{n} {k}")
                                        for k, n in counts.items()) + ".\n")
     rep.append(md_table(refits.groupby(["flag", "calculation"]).size().reset_index(name="fits"),
@@ -1403,14 +1554,31 @@ def write_report(v):
                "reproduced. `file_line` is the flag in the file.\n")
     rep.append("## Site means (Table 2)\n")
     rep.append("Hierarchical Fisher means of the characteristic fits that Table I does not discard: the specimens "
-               "of each core (each hand block for GTX08 and GTX10) averaged first.\n")
+               "of each sample (core, or hand block for GTX08 and GTX10) averaged first.\n")
     rep.append(md_table(site_check, ["site", "dec_pub", "inc_pub", "a95_pub", "n_pub", "dec", "inc", "a95", "k", "n",
-                                     "n_specimens", "angle", "reproduced"], {"angle": ".2f"}))
+                                     "n_specimens", "angle", "reproduced", "specimen_mean_reproduced"],
+                        {"angle": ".2f"}))
+    rep.append(f"\n`specimen_mean_reproduced`: the Fisher mean of the specimens, without averaging each sample first, "
+               f"gives the printed mean for {int(site_check['specimen_mean_reproduced'].sum())} of the "
+               f"{len(site_check)} sites (those with one specimen per sample).")
+    for site, sub in v["subset_check"].items():
+        closest, same_n = sub["closest"], sub["same_n"]
+        rep.append(f"\n{site}: of the {sub['subsets']} subsets of the specimens of the site (with those Table I "
+                   f"discards), {sub['reproducing']} give the printed mean (within {REPRODUCED}° in direction, 0.05° in "
+                   f"α95, the same n). The closest in direction: {closest['dec']:.1f}/{closest['inc']:.1f}, α95 "
+                   f"{closest['alpha95']:.1f}°, n = {closest['n']}, {closest['angle']:.2f}° away "
+                   f"({', '.join(closest['specimens'])}); the closest with n = {same_n['n']}: "
+                   f"{same_n['dec']:.1f}/{same_n['inc']:.1f}, α95 {same_n['alpha95']:.1f}°, {same_n['angle']:.2f}° away "
+                   f"({', '.join(same_n['specimens'])}).")
     rep.append("\n## VGPs (Table 3)\n")
     rep.append("From the published site mean and the site coordinates of Table 1 (`pmag.dia_vgp`):\n")
     rep.append(md_table(vgp_check, ["site", "lat_pub", "lon_pub", "dp_pub", "dm_pub", "lat", "lon", "dp", "dm",
                                     "angle"], {"dp": ".2f", "dm": ".2f", "angle": ".2f", "dp_pub": ".2f",
                                                "dm_pub": ".2f"}))
+    errors = vgp_check["dp"].round(2).eq(vgp_check["dp_pub"]) & vgp_check["dm"].round(2).eq(vgp_check["dm_pub"])
+    rep.append(f"\nThe poles of all {len(vgp_check)} agree within {vgp_check['angle'].max():.2f}°; dp and dm agree to the "
+               f"printed digit for {int(errors.sum())}, and differ in the last digit for "
+               + ", ".join(f"{r.site} (dp {r.dp:.2f}, dm {r.dm:.2f})" for r in vgp_check[~errors].itertuples()) + ".")
     # ---- paleointensity
     th, copies, pi_files = v["thellier_check"], v["copies"], v["pi_files"]
     rep.append("\n## Thellier-Coe files\n")
@@ -1423,6 +1591,16 @@ def write_report(v):
                f"laboratory field along −Z). The median direction of the pTRMs gained by a specimen is within 10° of "
                f"−Z for {int((v['lab_angle'] <= 10).sum())} of the {len(v['lab_angle'])} specimens, and at most "
                f"{v['lab_angle'].max():.1f}° from it ({v['lab_angle'].idxmax()}).\n")
+    nrm = v["nrm_check"]
+
+    def spread(r):
+        return (f"{len(r)} microcores, median {r.median():.2f}, 10th to 90th percentile {r.quantile(0.1):.2f} to "
+                f"{r.quantile(0.9):.2f}, range {r.min():.2f} to {r.max():.2f}")
+    rep.append("The unit of the moments of the `.TDT` files: the NRM of a microcore, read as A/m, over the median NRM "
+               "of the demagnetized specimens of the same core (2G and `.rs3` files, A/m), where the name of the "
+               f"microcore gives the core: {spread(nrm.loc[~nrm['ltd'], 'ratio'])} without LTD, and "
+               f"{spread(nrm.loc[nrm['ltd'], 'ratio'])} with LTD. In mA/m the ratios would be a thousand times "
+               "smaller.\n")
     rep.append("Each corrected copy is its original file with the measurements listed deleted, and the others "
                "unchanged. Where Table III names the copy (`interpreted`), the specimen is entered from its "
                "original file and those measurements are flagged bad; the other copies are not entered.\n")
@@ -1464,7 +1642,8 @@ def write_report(v):
     rep.append("\n## Rock-magnetic files\n")
     rep.append(f"{len(v['rock_spec'])} powders, each with four VFTB curves, converted with `convert_2_magic.vftb`: "
                + "; ".join(f"{code} {r.curves} curves, {r.points} points" for code, r in counts.iterrows())
-               + f". Each powder is entered with the suffix `{pub.ROCKMAG_SUFFIX}`, in the sample of its core. The "
+               + f". Each powder is entered with the suffix `{pub.ROCKMAG_SUFFIX}`, in its sample (the core, or the "
+               "hand block for GTX08 and GTX10). The "
                "paper gives no rock-magnetic values per sample (only the Day plot of Fig. 2C), so none is entered. For "
                "the record, and as a check of PmagPy on these curves:\n")
     rep.append(md_table(rock, ["specimen", "points", "bcr", "ms", "ms_branch", "mr", "mr_branch", "bc", "bc_branch",
@@ -1472,9 +1651,8 @@ def write_report(v):
                         {"bcr": ".1f", "ms": ".3f", "ms_branch": ".3f", "mr": ".3f", "mr_branch": ".3f", "bc": ".1f",
                          "bc_branch": ".1f", "mr_ms": ".3f", "bcr_bc": ".2f"}))
     rep.append(f"\nMoments in Am²/kg, fields in mT. `bcr`: zero crossing of the back-field curve "
-               "(`rockmag.process_backfield_data`, which needs the fix of PmagPy issue #1049 for curves that start at "
-               "zero field). `ms`, `mr`, `bc`: `rockmag.process_hyst_loop` (which needs the initial curve of the "
-               "file to be left out, the second point of issue #1048); `_branch`: read from the measured branches "
+               "(`rockmag.process_backfield_data`). `ms`, `mr`, `bc`: `rockmag.process_hyst_loop`, which leaves out "
+               "the initial magnetization curve at the start of each file; `_branch`: read from the measured branches "
                "after removing the high-field slope above 60 percent of the peak field. `process_hyst_loop` gives "
                f"Mr {100 * (rock['mr'] / rock['mr_branch'] - 1).min():.0f} to "
                f"{100 * (rock['mr'] / rock['mr_branch'] - 1).max():.0f} percent and Bc "
@@ -1482,27 +1660,48 @@ def write_report(v):
                f"{100 * (rock['bc'] / rock['bc_branch'] - 1).max():.0f} percent from the branch values, and Ms "
                f"{100 * (rock['ms'] / rock['ms_branch'] - 1).min():.1f} to "
                f"{100 * (rock['ms'] / rock['ms_branch'] - 1).max():.1f} percent: the loops have "
-               f"{rock['points'].min()} to {rock['points'].max()} points, unevenly spaced, which the function "
-               "resamples on an even grid (the first point of issue #1048). `mr_ms` and `bcr_bc` are from the "
-               "branch values.\n")
+               + (f"{rock['points'].min()} points each" if rock['points'].min() == rock['points'].max() else
+                  f"{rock['points'].min()} to {rock['points'].max()} points")
+               + ", unevenly spaced (about 50 mT apart near zero field), and the function resamples a loop on an "
+               "even grid of its median field step, which does not resolve the loop near zero field. `mr_ms` and "
+               "`bcr_bc` are from the branch values.\n")
     rep.append("## Thermal stability (Table IV)\n")
-    rep.append(f"{ts['file'].str.contains('/').__invert__().sum()} magnetization-temperature cycles, converted with "
-               "`convert_2_magic.vftb`, for the rows of Table IV. MAGF/MAGI is recalculated as the magnetization at "
-               "the end of the cooling branch over that of the heating branch at the same temperature, linearly "
-               "interpolated; MAG2F/MAG1I the same with the end of the second cycle and the start of the first. "
-               "`agrees`: within 0.005.\n")
-    rep.append(md_table(ts, ["row", "kind", "file", "specimen", "weight_mg", "T_pub", "T", "ratio_pub", "ratio",
-                             "agrees"], {"weight_mg": ".0f", "T_pub": ".0f", "T": ".0f", "ratio_pub": ".3f",
-                                         "ratio": ".3f"}))
+    cycles = ts[~ts["file"].str.contains("/")]
+    no_field = cycles[cycles["field_mT"].isna()]
+    rep.append(f"{len(cycles)} magnetization-temperature cycles, converted with `convert_2_magic.vftb`, for the rows "
+               f"of Table IV. The field of a cycle (`field_mT`, the median of its file) is "
+               f"{cycles['field_mT'].min():.1f} to {cycles['field_mT'].max():.1f} mT for {len(cycles) - len(no_field)} "
+               f"files (the text gives 38 mT); the other {len(no_field)} ({', '.join(no_field['file'])}) give -999 in "
+               "the field column, the missing value of the VFTB software, and their field is left empty.\n")
+    rep.append("MAGF/MAGI is recalculated as the magnetization at the end of the cooling branch over that of the "
+               "heating branch at the measured temperature nearest to that of the end of cooling (`ratio`); "
+               "MAG2F/MAG1I the same with the end of the second cycle and the heating branch of the first. `agrees`: "
+               "`ratio` within 0.005. Two other ratios for comparison: `ratio_interpolated`, with the heating branch "
+               "interpolated linearly to the temperature of the end of cooling, and `ratio_start`, over the first "
+               "measurement of the heating branch.\n")
+    rep.append(md_table(ts, ["row", "kind", "file", "specimen", "weight_mg", "field_mT", "T_pub", "T", "ratio_pub",
+                             "ratio", "ratio_interpolated", "ratio_start", "agrees"],
+                        {"weight_mg": ".0f", "field_mT": ".1f", "T_pub": ".0f", "T": ".0f", "ratio_pub": ".3f",
+                         "ratio": ".3f", "ratio_interpolated": ".3f", "ratio_start": ".3f"}))
     has_pub = ts[ts["ratio_pub"].notna()]
-    rep.append(f"\n{int((has_pub['agrees'] == 'yes').sum())} of {len(has_pub)} printed ratios recalculate within 0.005. "
-               "For GTX0505 the cycle to 500 °C gives the ratio printed for T3 (600 °C) and the cycle to 600 °C the "
+    exact = {k: int((has_pub[k].round(3) == has_pub["ratio_pub"]).sum())
+             for k in ("ratio", "ratio_interpolated", "ratio_start")}
+    only_start = has_pub[(has_pub["ratio_start"].round(3) == has_pub["ratio_pub"]) & (has_pub["agrees"] == "no")]
+    rep.append(f"\n{int((has_pub['agrees'] == 'yes').sum())} of {len(has_pub)} printed ratios recalculate within "
+               f"0.005. To the printed digit, `ratio` gives {exact['ratio']} of them, `ratio_interpolated` "
+               f"{exact['ratio_interpolated']} and `ratio_start` {exact['ratio_start']}. Of those that `ratio` does "
+               "not give, `ratio_start` gives "
+               + (", ".join(f"{r.row} " + (f"at {r.T_pub:.0f} °C" if pd.notna(r.T_pub) else r.kind)
+                            + f" ({r.ratio_pub:.3f})" for r in only_start.itertuples())
+                  if len(only_start) else "none")
+               + ". For GTX0505 the cycle to 500 °C gives the ratio printed for T3 (600 °C) and the cycle to 600 °C the "
                "one printed for T1 (500 °C). Table IV prints no ratio for OLO106.\n")
     rep.append("\n## Information that would complete the contribution\n")
     rep.append("- What the ± of the ages in Table 1 is (one or two standard deviations).")
     rep.append("- The unit of the moments of the `.TDT` files (entered as A/m) and the volumes of the microcores.")
     rep.append("- Whether the NRM of the LTD specimens was measured after a low-temperature demagnetization.")
     rep.append("- The ninth Thellier-Coe specimen of OL03 (Tables 2 and 4 count 9; Table III and the archive have 8).")
+    rep.append("- The field of the 11 thermal-stability cycles whose files do not record it.")
     rep.append("- What the second sets of rock-magnetic curves (`_MAL`) of GTX0208B and GTX0307inf are.")
     rep.append("- The rock-magnetic parameters of each powder, which the paper plots (Fig. 2C) but does not list.")
     return rep
